@@ -11,6 +11,7 @@ app = Flask(__name__)
 
 MOCK_RESPONSE = {
     "risk_score": 71,
+    "is_mock": True,  # frontend shows a visible badge when this is true, so the mock can't be mistaken for the real backend mid-demo
     "features": {
         "dev_norm":   {"value": 0.63, "ctrl_mean": 0.41, "pd_mean": 0.63, "percentile_pd": 68},
         "vel_cv":     {"value": 1.12, "ctrl_mean": 0.85, "pd_mean": 1.09, "percentile_pd": 55},
@@ -50,9 +51,16 @@ def analyze():
     )
 
     # Not real analysis — just enough variation from the real payload so the two
-    # demo presets (and a live drawing) don't all show an identical hardcoded number.
+    # demo presets (and a live drawing) don't all show an identical hardcoded
+    # number. Blends pressure CV with radial jitter so the score still moves on
+    # a mouse test (pressure CV is always 0 there, per the W3C pointer-events
+    # spec) and on a firm-press, shaky-hand test (pressure CV alone understates
+    # a spiral that's wobbling spatially but not in pressure).
+    radial_jitter = _radial_jitter(x, y, data.get("canvas_width"), data.get("canvas_height"))
+    raw = radial_jitter * 40.0 if pressure_cv < 0.01 else (pressure_cv * 125.0 + radial_jitter * 18.0)
+
     response = dict(MOCK_RESPONSE)
-    response["risk_score"] = min(95, max(5, round(pressure_cv * 180)))
+    response["risk_score"] = min(95, max(5, round(raw)))
     return jsonify(response)
 
 
@@ -64,6 +72,22 @@ def _coefficient_of_variation(values):
         return 0.25
     variance = sum((v - mean) ** 2 for v in values) / len(values)
     return (variance ** 0.5) / mean
+
+
+def _radial_jitter(x, y, canvas_width, canvas_height):
+    """Std of the 2nd difference of radius from center — spatial wobble, independent of pressure."""
+    if len(x) < 5 or not canvas_width or not canvas_height:
+        return 0.0
+    cx, cy = canvas_width / 2.0, canvas_height / 2.0
+    r = [((xi - cx) ** 2 + (yi - cy) ** 2) ** 0.5 for xi, yi in zip(x, y)]
+    d1 = [r[i + 1] - r[i] for i in range(len(r) - 1)]
+    d2 = [d1[i + 1] - d1[i] for i in range(len(d1) - 1)]
+    if not d2:
+        return 0.0
+    mean = sum(d2) / len(d2)
+    variance = sum((v - mean) ** 2 for v in d2) / len(d2)
+    # normalize against canvas size so it's comparable across devices/zoom levels
+    return (variance ** 0.5) / max(canvas_width, canvas_height) * 1000
 
 
 if __name__ == "__main__":

@@ -23,6 +23,10 @@ let isDrawing = false;
 let activePenPointerId = null;
 let spiralGeometry = null; // {cx, cy, b} set by drawSpiralTemplate(), reused by the heatmap
 let lastInputLabel = 'S Pen';
+let lastPointerType = 'pen'; // what actually gets reported to the backend — never hardcode this in the payload
+
+const RISK_BAND_LOW_MAX = 34;
+const RISK_BAND_MOD_MAX = 67;
 
 // ---------- canvas setup ----------
 
@@ -118,6 +122,7 @@ canvas.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch') return; // reject palm; 'pen' and 'mouse' (laptop testing) are allowed
   canvas.setPointerCapture(e.pointerId);
   activePenPointerId = e.pointerId;
+  lastPointerType = e.pointerType;
   lastInputLabel = e.pointerType === 'pen' ? 'S Pen' : 'Mouse';
   isDrawing = true;
   addPoint(e);
@@ -196,8 +201,11 @@ function updateTelemetry() {
   const dtMs = sample[sample.length - 1].t - sample[0].t;
   const hz = dtMs > 0 ? Math.round((sample.length - 1) / (dtMs / 1000)) : 0;
   const avgPressure = sample.reduce((sum, p) => sum + p.p, 0) / sample.length;
-  telemetryStrip.textContent =
-    `✓ ${lastInputLabel}  ⚡ ${hz} Hz  |  Pressure: ${Math.round(avgPressure * 100)}%  |  ${points.length} pts`;
+  const isMouse = lastPointerType === 'mouse';
+  telemetryStrip.textContent = isMouse
+    ? `⚠️ Mouse mode — pressure data is simulated, not real  |  ${hz} Hz  |  ${points.length} pts`
+    : `✓ ${lastInputLabel}  ⚡ ${hz} Hz  |  Pressure: ${Math.round(avgPressure * 100)}%  |  ${points.length} pts`;
+  telemetryStrip.classList.toggle('telemetry-warning', isMouse);
 }
 
 function maybeEnableAnalyze() {
@@ -240,7 +248,7 @@ async function submitDrawing(source) {
     canvas_width: rect.width,
     canvas_height: rect.height,
     device_pixel_ratio: window.devicePixelRatio || 1,
-    pointer_type: source === 'live' ? 'pen' : 'pen',
+    pointer_type: lastPointerType, // real captured type — never hardcode; mouse data has no real pressure signal
     num_strokes: new Set(points.map(p => p.s)).size,
   };
 
@@ -266,14 +274,18 @@ async function submitDrawing(source) {
 // ---------- results rendering ----------
 
 function riskBand(score) {
-  if (score < 34) return { cls: 'band-low', label: 'Low risk indicators' };
-  if (score < 67) return { cls: 'band-moderate', label: 'Moderate risk indicators' };
-  return { cls: 'band-high', label: 'High risk indicators' };
+  if (score < RISK_BAND_LOW_MAX) {
+    return { cls: 'band-low', label: 'Within normal reference range' };
+  }
+  if (score < RISK_BAND_MOD_MAX) {
+    return { cls: 'band-moderate', label: 'Borderline kinematic deviation' };
+  }
+  return { cls: 'band-high', label: 'Elevated kinematic deviation' };
 }
 
 function pctBand(pct) {
-  if (pct < 34) return 'pct-low';
-  if (pct < 67) return 'pct-moderate';
+  if (pct < RISK_BAND_LOW_MAX) return 'pct-low';
+  if (pct < RISK_BAND_MOD_MAX) return 'pct-moderate';
   return 'pct-high';
 }
 
@@ -308,6 +320,9 @@ function displayResults(data) {
   document.getElementById('interpretation-block').textContent = data.interpretation || '';
   document.getElementById('disclaimer-block').textContent =
     data.disclaimer || 'Screening tool only. Not a clinical diagnosis.';
+
+  const mockBadge = document.getElementById('mock-badge');
+  mockBadge.classList.toggle('hidden', !data.is_mock);
 
   drawTremorHeatmap();
 }
@@ -382,6 +397,7 @@ function loadDemo(kind) {
   initCanvas();
   resetCanvasState();
   lastInputLabel = 'Demo';
+  lastPointerType = 'pen'; // synthetic data is generated to be pen-like (full pressure range), so report it as such
 
   const synthetic = generateSyntheticSpiral(kind);
   let i = 0;
@@ -417,21 +433,36 @@ function generateSyntheticSpiral(kind) {
   const durationMs = isPd ? 9000 : 6000;
   const hz = 200;
   const n = Math.round((durationMs / 1000) * hz);
-  const tremorHz = isPd ? 4 + Math.random() * 2 : 8 + Math.random() * 2;
-  const pressureCv = isPd ? 0.40 : 0.13;
-  const pressureBase = 0.6;
+  // Hz here means oscillations per second of WALL-CLOCK TIME, matching what a
+  // real backend's FFT measures — phase must be driven by tSec, not by spiral
+  // angle, or the "4-6Hz tremor" ends up at a fraction of a Hz once drawn out
+  // over several seconds (caught in review: theta-driven phase is dimensionally
+  // wrong for a temporal frequency target).
+  const tremorHz = isPd ? 4.3 + Math.random() * 1.5 : 8 + Math.random() * 2;
+  const tremorAmpPx = isPd ? maxR * 0.028 : maxR * 0.004;
+  const tremorAxis = Math.PI / 3.3; // fixed direction, not purely radial — radial-only wobble draws a symmetric gear/flower, not a hand tremor
+  const pressureMean = isPd ? 0.58 : 0.84;
+  const pressureAmp = isPd ? 0.33 : 0.15; // sized so std/mean lands near the target p_cv (0.40 / 0.13)
 
   const out = [];
   let t = performance.now();
   for (let i = 0; i < n; i++) {
+    const tSec = i / hz;
     const frac = i / (n - 1);
     const theta = thetaMax * frac;
-    const tremor = isPd ? (Math.sin(theta * (tremorHz / 2)) * maxR * 0.02) : 0;
-    const r = b * theta + tremor;
-    const x = cx + r * Math.cos(theta - Math.PI / 2);
-    const y = cy + r * Math.sin(theta - Math.PI / 2);
-    const noise = () => (Math.random() - 0.5) * pressureCv * pressureBase * 2;
-    const p = Math.min(1, Math.max(0.05, pressureBase + noise()));
+    const phase = 2 * Math.PI * tremorHz * tSec;
+    const wobble = Math.sin(phase);
+
+    const idealR = b * theta;
+    const idealX = cx + idealR * Math.cos(theta - Math.PI / 2);
+    const idealY = cy + idealR * Math.sin(theta - Math.PI / 2);
+    const x = idealX + tremorAmpPx * wobble * Math.cos(tremorAxis);
+    const y = idealY + tremorAmpPx * wobble * Math.sin(tremorAxis);
+
+    // Pressure rides the same tremor phase instead of independent per-sample
+    // noise — a hand can't modulate grip at 200Hz, so white noise there looked
+    // like fuzz rather than a 4-6Hz pulse.
+    const p = Math.min(1, Math.max(0.05, pressureMean + pressureAmp * Math.sin(phase + 0.6)));
     out.push({ x, y, t, p, s: 0 });
     t += 1000 / hz;
   }

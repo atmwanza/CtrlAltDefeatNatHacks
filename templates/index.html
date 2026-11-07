@@ -24,6 +24,7 @@
 <header class="topbar">
   <div class="topbar-left">
     <span class="brand">DrawDx</span>
+    <span id="mock-badge" class="mock-badge hidden">MOCK DATA</span>
     <span id="telemetry-strip" class="telemetry">Waiting for S Pen&hellip;</span>
   </div>
   <div class="topbar-right">
@@ -42,11 +43,13 @@
   <section id="results-panel" class="hidden">
     <div id="risk-score-block">
       <div id="risk-score-side">
+        <div class="risk-index-label">Kinematic Deviation Index</div>
         <div class="risk-number-wrap">
           <span id="risk-score-number">—</span>
           <span class="risk-number-suffix">/100</span>
         </div>
         <div id="risk-band-label"></div>
+        <div class="risk-index-sub">Weighted composite percentile across 6 reference biomarkers — not a diagnostic probability</div>
       </div>
       <div id="heatmap-side">
         <canvas id="heatmap-canvas"></canvas>

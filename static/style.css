@@ -59,6 +59,22 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
+.telemetry-warning {
+  color: var(--moderate);
+  font-weight: 600;
+}
+
+.mock-badge {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: white;
+  background: var(--high);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
 .btn {
   min-height: 48px;
   padding: 0 18px;
@@ -185,6 +201,22 @@ main {
   justify-content: center;
   text-align: center;
   border-right: 1px solid var(--border);
+}
+
+.risk-index-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.risk-index-sub {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
 }
 
 .risk-number-wrap { line-height: 1; }
