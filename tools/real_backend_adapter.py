@@ -148,6 +148,10 @@ def analyze():
 
     if len(xs) < 50:
         return jsonify({"error": f"Only {len(xs)} points received; need at least 50."}), 400
+    if not (payload.get("canvas_width") or 0) > 0 or not (payload.get("canvas_height") or 0) > 0:
+        # Coordinates are scaled by canvas size; a 0 size (canvas hidden at
+        # submit time) inflated them ~580x and changed the tremor value.
+        return jsonify({"error": "canvas_width and canvas_height must be greater than 0."}), 400
 
     # extract_features() treats its whole input as ONE continuous recording,
     # same as the UCI files it was validated on (single unbroken pass, no pen

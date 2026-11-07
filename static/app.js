@@ -41,8 +41,16 @@ function spiralAngle(theta) {
 
 // ---------- canvas setup ----------
 
+// Canvas size the drawing was made on. Read from here at submit time: once
+// results are showing the canvas is hidden and measures 0x0, and the backend
+// scales coordinates by this size (a 0 size blew coordinates up ~580x).
+let drawingCanvasSize = { width: 0, height: 0 };
+
 function initCanvas() {
   const rect = canvas.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0) {
+    drawingCanvasSize = { width: rect.width, height: rect.height };
+  }
   const dpr = window.devicePixelRatio || 1;
   canvas.width = rect.width * dpr;
   canvas.height = rect.height * dpr;
@@ -223,7 +231,9 @@ function updateTelemetry() {
 }
 
 function maybeEnableAnalyze() {
-  analyzeBtn.disabled = points.length < MIN_POINTS_TO_ANALYZE;
+  // Off while results are showing: re-tapping would re-send the same drawing as a new result.
+  const resultsShowing = !resultsPanel.classList.contains('hidden');
+  analyzeBtn.disabled = resultsShowing || points.length < MIN_POINTS_TO_ANALYZE;
 }
 
 function showLiftedTelemetry() {
@@ -307,15 +317,14 @@ function hideDrawWarning() {
 }
 
 async function submitDrawing(source) {
-  const rect = canvas.getBoundingClientRect();
   const payload = {
     x: points.map(p => p.x),
     y: points.map(p => p.y),
     t: points.map(p => p.t),
     p: points.map(p => p.p),
     s: points.map(p => p.s),
-    canvas_width: rect.width,
-    canvas_height: rect.height,
+    canvas_width: drawingCanvasSize.width,
+    canvas_height: drawingCanvasSize.height,
     device_pixel_ratio: window.devicePixelRatio || 1,
     pointer_type: lastPointerType, // real captured type — never hardcode; mouse data has no real pressure signal
     num_strokes: new Set(points.map(p => p.s)).size,
@@ -336,7 +345,7 @@ async function submitDrawing(source) {
     alert(`Analysis failed: ${err.message}`);
   } finally {
     analyzeBtn.textContent = 'Analyze Spiral';
-    analyzeBtn.disabled = points.length < MIN_POINTS_TO_ANALYZE;
+    maybeEnableAnalyze();
   }
 }
 

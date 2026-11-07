@@ -14,7 +14,7 @@
       "t": "float[] — DOMHighResTimeStamp in ms, as captured from the PointerEvent (or its coalesced events); the S Pen reports roughly every 2ms",
       "p": "float[] — S Pen pressure, 0.0-1.0, real values",
       "s": "int[] — stroke ID: 0-based, +1 on every pen lift (pointerup or pointercancel). It is not a pen-down flag: every point sent is pen-down, hover samples are never recorded. Use the longest stroke (see preprocessing).",
-      "canvas_width": "float — CSS pixel width of the canvas element. Used only to scale x/y into UCI units before integer rounding (see preprocessing).",
+      "canvas_width": "float — CSS pixel width of the canvas the drawing was made on. Used only to scale x/y into UCI units before integer rounding (see preprocessing). Must be > 0: reject the request otherwise (a hidden canvas measures 0, which inflated coordinates ~580x and changed tremor).",
       "canvas_height": "float — CSS pixel height of the canvas element. Same use as canvas_width.",
       "device_pixel_ratio": "float — window.devicePixelRatio, typically 2.0 on Galaxy Tab S10 FE. Informational only; x/y are already CSS pixels, so the backend can ignore it.",
       "pointer_type": "string — 'pen' or 'mouse'. Mouse pressure is a constant 0.5 (W3C spec), so pressure features are meaningless for 'mouse'. Tablet calibration applies only to 'pen'.",
