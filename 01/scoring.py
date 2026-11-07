@@ -7,10 +7,11 @@ def build_group_stats(healthy, pd):
     for name in healthy[0]:
         h = [f[name] for f in healthy]
         p = [f[name] for f in pd]
-        ref[name] = {
-            'h_mean': statistics.mean(h), 'h_sd': statistics.stdev(h),
-            'p_mean': statistics.mean(p), 'p_sd': statistics.stdev(p),
-        }
+        pooled = math.sqrt(
+            ((len(h) - 1) * statistics.variance(h) +
+             (len(p) - 1) * statistics.variance(p)) / (len(h) + len(p) - 2))
+        ref[name] = {'h_mean': statistics.mean(h), 'h_sd': pooled,
+                     'p_mean': statistics.mean(p), 'p_sd': pooled}
     return ref
 
 
@@ -25,9 +26,6 @@ def score(features, ref):
         x = features[name]
         diff += log_gauss(x, s['p_mean'], s['p_sd'])
         diff -= log_gauss(x, s['h_mean'], s['h_sd'])
-    diff = max(min(diff, 50), -50)  # avoid overflow
+    diff = max(min(diff, 50), -50)
     prob = 1 / (1 + math.exp(-diff))
-
-    cutoffs = [0.1, 0.3, 0.5, 0.7, 0.9]
-    level = sum(prob >= c for c in cutoffs)
-    return level, prob
+    return sum(prob >= c for c in [0.1, 0.3, 0.5, 0.7, 0.9]), prob

@@ -16,10 +16,10 @@ for path, label in uci_files:
         continue
     feats = extract_features(data)
     (pd if label == 1 else healthy).append(feats)
-
+print(len(healthy), len(pd))
 ref = build_group_stats(healthy, pd)
 
 # 3-4: score new input
-new = extract_features(load_spiral(root / 'control' / 'C_0001.txt'))
+new = extract_features(load_spiral(root / 'control' / 'C_0002.txt'))
 level, prob = score(new, ref)
 print(f'Level: {level}/5  (probability {prob:.0%})')
