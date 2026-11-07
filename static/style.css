@@ -394,3 +394,6 @@ main {
   min-height: 0;
   height: auto;             /* overrides the fixed calc() heights above */
 }
+
+/* no scrolling while drawing (results view re-enables it) */
+main.drawing-locked { overflow: hidden; }

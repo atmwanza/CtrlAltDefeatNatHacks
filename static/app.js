@@ -14,6 +14,7 @@ const beginDrawingBtn = document.getElementById('begin-drawing-btn');
 const instructionsOverlay = document.getElementById('instructions-overlay');
 const resultsPanel = document.getElementById('results-panel');
 
+const mainEl = document.querySelector('main');
 const MIN_POINTS_TO_ANALYZE = 150;
 const ANALYZE_ENDPOINT = '/analyze'; // swap to teammates' real backend URL once /analyze is live; mock_server.py answers this today
 
@@ -282,9 +283,24 @@ function resetCanvasState() {
   redrawCanvas();
 }
 
-drawAgainBtn.addEventListener('click', () => {
+// Results are scrollable, the drawing view is not. Without resetting, Safari keeps the
+// results' scroll position and snaps it back mid-drawing, shifting the canvas under the pen.
+function showDrawingView() {
   resultsPanel.classList.add('hidden');
-  canvasContainer.style.display = 'block'; // must be visible BEFORE initCanvas() or getBoundingClientRect() returns 0x0
+  mainEl.scrollTop = 0;
+  window.scrollTo(0, 0);
+  mainEl.classList.add('drawing-locked');
+  canvasContainer.style.display = 'block';
+}
+
+drawAgainBtn.addEventListener('click', () => {
+  showDrawingView(); // must be visible BEFORE initCanvas() or getBoundingClientRect() returns 0x0
+  initCanvas();
+  resetCanvasState();
+});
+
+drawAgainBtn.addEventListener('click', () => {
+  showDrawingView(); // must be visible BEFORE initCanvas() or getBoundingClientRect() returns 0x0
   initCanvas();
   resetCanvasState();
 });
@@ -348,6 +364,8 @@ function pctBand(pct) {
 
 function displayResults(data) {
   canvasContainer.style.display = 'none';
+  mainEl.classList.remove('drawing-locked');
+  mainEl.scrollTop = 0;
   resultsPanel.classList.remove('hidden');
 
   const scoreEl = document.getElementById('risk-score-number');
@@ -459,8 +477,7 @@ demoPdBtn.addEventListener('click', () => loadDemo('pd'));
 
 function loadDemo(kind) {
   dismissOverlayIfNeeded();
-  resultsPanel.classList.add('hidden');
-  canvasContainer.style.display = 'block';
+  showDrawingView();
   initCanvas();
   resetCanvasState();
   lastInputLabel = 'Demo';
@@ -558,4 +575,5 @@ new ResizeObserver(() => {
 }).observe(canvasContainer);
 
 applyDeviceMode();
+mainEl.classList.add('drawing-locked');
 initCanvas();

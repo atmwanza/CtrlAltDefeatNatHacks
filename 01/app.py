@@ -1,7 +1,8 @@
 import csv
 import io
-from pathlib import Path
+import json
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 
@@ -51,6 +52,33 @@ def build_reference():
 REF = build_reference()
 
 
+# ---------- per-device calibration ----------
+# Tremor and pressure read higher on some devices (e.g. Apple Pencil in Safari) even for
+# healthy hands. Healthy drawings saved in calibration/<platform>/ set that device's
+# "normal", and its readings are shifted so that normal lines up with the UCI healthy group.
+
+CALIBRATED = ['tremor_pct', 'p_cv']
+
+
+def build_calibration():
+    offsets = {}
+    for folder in (HERE / 'calibration').glob('*'):
+        feats = []
+        for f in folder.glob('*.json'):
+            d = json.loads(f.read_text())
+            feats.append(extract_features({'x': d['x'], 'y': d['y'],
+                                           'timestamp': d['t'], 'pressure': d['p']}))
+        if len(feats) >= 3:
+            offsets[folder.name] = {k: float(np.mean([x[k] for x in feats])) - REF[k]['h_mean']
+                                    for k in CALIBRATED}
+            print(f"Calibration '{folder.name}': {len(feats)} drawings, offsets "
+                  + ", ".join(f"{k} {v:+.3f}" for k, v in offsets[folder.name].items()))
+    return offsets
+
+
+CAL = build_calibration()
+
+
 # ---------- scoring shared by every route ----------
 
 def quality_warnings(data, n_strokes, pointer_type):
@@ -68,7 +96,8 @@ def quality_warnings(data, n_strokes, pointer_type):
         warnings.append("Mouse input has no real pressure, so pressure was left out of the score.")
     return warnings
 
-def analyse(data, pointer_type='pen', n_strokes=1):
+
+def analyse(data, pointer_type='pen', n_strokes=1, platform=None):
     if len(data['x']) < 150:
         raise HTTPException(400, f"Only {len(data['x'])} points received; need at least 150.")
 
@@ -78,6 +107,11 @@ def analyse(data, pointer_type='pen', n_strokes=1):
         n_turns = turns(np.asarray(data['x'], dtype=float), np.asarray(data['y'], dtype=float))
     except (ValueError, ZeroDivisionError, IndexError) as e:
         raise HTTPException(400, f"Could not analyse drawing: {e}")
+
+    calibration = CAL.get(platform, {})
+    for name, offset in calibration.items():
+        if name in feats:
+            feats[name] = max(0.0, feats[name] - offset)
 
     warnings = quality_warnings(data, n_strokes, pointer_type)
     if n_turns < 1:
@@ -113,8 +147,10 @@ def analyse(data, pointer_type='pen', n_strokes=1):
         'disclaimer': DISCLAIMER,
         'warnings': warnings,
         'is_mock': False,
-        'backend_label': 'LIVE · UCI REFERENCE',
+        'calibrated_for': platform if calibration else None,
+        'backend_label': f'LIVE · UCI + {platform.upper()} CAL' if calibration else 'LIVE · UCI REFERENCE',
     }
+
 
 # ---------- frontend ----------
 
@@ -145,9 +181,9 @@ def analyze(d: Drawing):
         raise HTTPException(400, "x, y, t and p must be the same length.")
     data = {'x': d.x, 'y': d.y, 'timestamp': d.t, 'pressure': d.p}
     n_strokes = d.num_strokes or len(set(d.s)) or 1
-    result = analyse(data, d.pointer_type, n_strokes)
+    result = analyse(data, d.pointer_type, n_strokes, d.device_platform)
 
-    # keep every drawing so we can calibrate devices later
+    # keep every drawing so devices can be calibrated later
     rec_dir = HERE / 'recordings'
     rec_dir.mkdir(exist_ok=True)
     stamp = datetime.now().strftime('%Y%m%d-%H%M%S-%f')
