@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>DrawDx — Spiral Screening</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div id="instructions-overlay" class="overlay">
+  <div class="overlay-card">
+    <h1>DrawDx</h1>
+    <p class="overlay-sub">Parkinson's spiral screening</p>
+    <ol class="overlay-steps">
+      <li>Trace the gray spiral from the <strong>START</strong> dot at the center to the <strong>FINISH</strong> ring at the outside.</li>
+      <li>Use the S&nbsp;Pen, drawing naturally — there's no need to go slowly or carefully.</li>
+      <li>Once you reach the finish ring, tap <strong>Analyze Spiral</strong>.</li>
+    </ol>
+    <button id="begin-drawing-btn" class="btn btn-primary">Begin Drawing</button>
+  </div>
+</div>
+
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="brand">DrawDx</span>
+    <span id="mock-badge" class="mock-badge hidden">MOCK DATA</span>
+    <span id="telemetry-strip" class="telemetry">Waiting for S Pen&hellip;</span>
+  </div>
+  <div class="topbar-right">
+    <button id="demo-healthy-btn" class="btn btn-ghost">▶ Healthy</button>
+    <button id="demo-pd-btn" class="btn btn-ghost">▶ PD</button>
+    <button id="clear-btn" class="btn btn-ghost">Clear</button>
+    <button id="analyze-btn" class="btn btn-primary" disabled>Analyze Spiral</button>
+  </div>
+</header>
+
+<main>
+  <div id="canvas-container">
+    <canvas id="spiral-canvas"></canvas>
+  </div>
+
+  <section id="results-panel" class="hidden">
+    <div id="risk-score-block">
+      <div id="risk-score-side">
+        <div class="risk-index-label">Kinematic Deviation Index</div>
+        <div class="risk-number-wrap">
+          <span id="risk-score-number">—</span>
+          <span class="risk-number-suffix">/100</span>
+        </div>
+        <div id="risk-band-label"></div>
+        <div class="risk-index-sub">Weighted composite percentile across 6 reference biomarkers — not a diagnostic probability</div>
+      </div>
+      <div id="heatmap-side">
+        <canvas id="heatmap-canvas"></canvas>
+        <div class="heatmap-legend">
+          <span><i class="dot low"></i> Smooth</span>
+          <span><i class="dot moderate"></i> Moderate</span>
+          <span><i class="dot high"></i> Tremor</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="features-grid"></div>
+
+    <div id="interpretation-block"></div>
+
+    <div id="disclaimer-block">
+      Screening tool only. Not a clinical diagnosis. Please discuss any concerns with a clinician.
+    </div>
+
+    <button id="draw-again-btn" class="btn btn-primary">Draw Again</button>
+  </section>
+</main>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
