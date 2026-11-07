@@ -540,20 +540,21 @@ function generateSyntheticSpiral(kind) {
 
 beginDrawingBtn.addEventListener('click', () => instructionsOverlay.classList.add('hidden'));
 
-// Resize the canvas whenever its box actually changes size (rotation, Safari toolbar,
-// top bar wrapping). ResizeObserver fires after layout, unlike 'resize' on iOS Safari,
-// which can fire before the new size is known and leave the canvas stretched/offset.
-let lastCanvasSize = '';
+// Resize the canvas whenever its box actually changes size (rotation, Safari toolbar).
+// ResizeObserver fires after layout, unlike 'resize' on iOS Safari, which can fire
+// before the new size is known and leave the canvas stretched/offset.
+let lastCanvasWidth = 0, lastCanvasHeight = 0;
 new ResizeObserver(() => {
   if (canvasContainer.style.display === 'none') return;
   const r = canvas.getBoundingClientRect();
-  if (r.width === 0 || r.height === 0) return;
-  const size = `${Math.round(r.width)}x${Math.round(r.height)}`;
-  if (size === lastCanvasSize) return;
-  const hadDrawing = lastCanvasSize !== '' && points.length > 0;
-  lastCanvasSize = size;
+  const w = Math.round(r.width), h = Math.round(r.height);
+  if (w === 0 || h === 0 || (w === lastCanvasWidth && h === lastCanvasHeight)) return;
+  const rotated = lastCanvasWidth !== 0 && w !== lastCanvasWidth;
+  lastCanvasWidth = w;
+  lastCanvasHeight = h;
   initCanvas();
-  if (hadDrawing) resetCanvasState(); // the spiral template moved, so old strokes no longer line up
+  // a width change means the tablet was rotated: the spiral moved, so old strokes no longer line up
+  if (rotated && points.length > 0) resetCanvasState();
 }).observe(canvasContainer);
 
 applyDeviceMode();

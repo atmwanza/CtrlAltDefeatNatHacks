@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>DrawDx — Spiral Screening</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
@@ -14,8 +14,7 @@
     <p class="overlay-sub">Parkinson's spiral screening</p>
     <ol class="overlay-steps">
       <li>Trace the gray spiral from the <strong>START</strong> dot at the center to the <strong>FINISH</strong> ring at the outside.</li>
-      <li>Use the <span class="pen-name">S&nbsp;Pen</span>, drawing naturally — there's no need to go slowly or carefully.</li>
-      <li>Once you reach the finish ring, tap <strong>Analyze Spiral</strong>.</li>
+      <li>Use the <span class="pen-name">S&nbsp;Pen</span> to trace the spiral as accurately as you can, at a comfortable pace.</li>      <li>Once you reach the finish ring, tap <strong>Analyze Spiral</strong>.</li>
     </ol>
     <button id="begin-drawing-btn" class="btn btn-primary">Begin Drawing</button>
   </div>
@@ -78,7 +77,7 @@
   </section>
 </main>
 
-<script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="/static/app.js"></script>
 </body>
 </html>
 
