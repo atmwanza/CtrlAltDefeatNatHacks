@@ -222,3 +222,5 @@ __marimo__/
 backend/demo_data/
 .venv/
 backend/demo_data/
+backend/tapping/demo_tap_data/
+backend/tapping/tap_baseline.json
