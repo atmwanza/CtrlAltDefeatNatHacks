@@ -1,0 +1,72 @@
+{
+  "endpoint": "POST /analyze",
+  "description": "Frontend sends one completed spiral drawing; backend returns a risk score plus per-feature breakdown against the UCI reference groups.",
+  "request": {
+    "content_type": "application/json",
+    "schema": {
+      "x": "float[] — CSS pixel X, canvas-relative (clientX minus canvas.getBoundingClientRect().left)",
+      "y": "float[] — CSS pixel Y, canvas-relative (clientY minus canvas.getBoundingClientRect().top)",
+      "t": "float[] — DOMHighResTimeStamp in ms, as captured from the PointerEvent (or its coalesced events)",
+      "p": "float[] — S Pen pressure, 0.0-1.0, real values (not multiplied by any raw digitizer scale)",
+      "s": "int[] — stroke index, 0-indexed, increments on pen lift",
+      "canvas_width": "float — CSS pixel width of the canvas element",
+      "canvas_height": "float — CSS pixel height of the canvas element",
+      "device_pixel_ratio": "float — window.devicePixelRatio, typically 2.0 on Galaxy Tab S10 FE",
+      "pointer_type": "string — 'pen' or 'mouse'; backend should skip pressure-derived features if 'mouse'",
+      "num_strokes": "int — computed as new Set(points.map(p => p.s)).size"
+    },
+    "example": {
+      "x": [312.4, 314.1, 316.8],
+      "y": [204.0, 206.3, 208.1],
+      "t": [0.0, 4.2, 8.5],
+      "p": [0.72, 0.74, 0.73],
+      "s": [0, 0, 0],
+      "canvas_width": 820,
+      "canvas_height": 980,
+      "device_pixel_ratio": 2.0,
+      "pointer_type": "pen",
+      "num_strokes": 1
+    },
+    "normalization_notes": [
+      "x/y arrays are in CSS pixel space, not physical pixels — do not multiply by device_pixel_ratio.",
+      "Normalize coordinates before comparing to UCI: x_norm = (x - canvas_width/2) / (canvas_height/2); y_norm = (y - canvas_height/2) / (canvas_height/2).",
+      "Do not multiply pressure by any raw digitizer scale (e.g. 1023) to compare against UCI's Wacom values — Samsung applies a non-linear pressure curve the browser already resolves to 0.0-1.0. Use dimensionless ratios (e.g. std/mean) instead, which cancel hardware-curve differences.",
+      "grip_angle is not sent — the browser's PointerEvent API has no equivalent of the UCI dataset's digitizer grip-angle field."
+    ]
+  },
+  "response": {
+    "content_type": "application/json",
+    "schema": {
+      "risk_score": "int, 0-100",
+      "features": {
+        "<feature_key>": {
+          "value": "float — the patient's measured value",
+          "ctrl_mean": "float — mean of the healthy control reference group",
+          "pd_mean": "float — mean of the confirmed-PD reference group",
+          "percentile_pd": "int, 0-100 — where the patient's value falls on the control→PD spectrum; drives the gauge-bar pin position in the UI"
+        }
+      },
+      "interpretation": "string — short clinical narrative",
+      "disclaimer": "string — must be shown verbatim in the UI"
+    },
+    "feature_keys": ["dev_norm", "vel_cv", "dom_freq", "tremor_pct", "p_norm", "p_cv"],
+    "example": {
+      "risk_score": 71,
+      "features": {
+        "dev_norm":   {"value": 0.63, "ctrl_mean": 0.41, "pd_mean": 0.63, "percentile_pd": 68},
+        "vel_cv":     {"value": 1.12, "ctrl_mean": 0.85, "pd_mean": 1.09, "percentile_pd": 55},
+        "dom_freq":   {"value": 4.3,  "ctrl_mean": 7.6,  "pd_mean": 4.4,  "percentile_pd": 72},
+        "tremor_pct": {"value": 0.11, "ctrl_mean": 0.04, "pd_mean": 0.12, "percentile_pd": 65},
+        "p_norm":     {"value": 0.61, "ctrl_mean": 0.85, "pd_mean": 0.57, "percentile_pd": 55},
+        "p_cv":       {"value": 0.38, "ctrl_mean": 0.13, "pd_mean": 0.40, "percentile_pd": 60}
+      },
+      "interpretation": "This drawing shows elevated spiral deviation, reduced pen pressure, and tremor activity in the frequency range associated with Parkinsonian tremor, relative to the healthy reference group.",
+      "disclaimer": "Screening tool only. Not a clinical diagnosis. Please discuss any concerns with a clinician."
+    }
+  },
+  "minimum_points_before_analyze_enabled": 150,
+  "reference_dataset": {
+    "source": "UCI Parkinson's Disease Spiral Drawings (dataset ID 395)",
+    "groups": "25 confirmed PD patients, 7 clean healthy controls (C_0002-C_0007, C_0009 — the other 8 of 15 control files have corrupted/wrapped timestamps and must be excluded)"
+  }
+}
