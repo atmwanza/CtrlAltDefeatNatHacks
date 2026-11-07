@@ -147,12 +147,14 @@ canvas.addEventListener('pointerup', (e) => {
   if (e.pointerId !== activePenPointerId) return;
   isDrawing = false;
   strokeIndex += 1;
+  showLiftedTelemetry();
 });
 
 canvas.addEventListener('pointercancel', (e) => {
   if (e.pointerType !== 'pen') return;
   if (e.pointerId !== activePenPointerId) return;
   isDrawing = false;
+  showLiftedTelemetry();
 });
 
 function toPoint(e, rect) {
@@ -210,6 +212,17 @@ function updateTelemetry() {
 
 function maybeEnableAnalyze() {
   analyzeBtn.disabled = points.length < MIN_POINTS_TO_ANALYZE;
+}
+
+function showLiftedTelemetry() {
+  // Pressure while hovering/lifted isn't meaningful (and pointermove is gated
+  // on e.buttons === 1 so no more points get recorded) — reflect "not
+  // touching" explicitly instead of leaving the last pre-lift reading on
+  // screen, which trails off to a few % rather than snapping to 0.
+  if (lastPointerType === 'mouse') return; // mouse mode already shows its own message
+  telemetryStrip.textContent =
+    `✓ ${lastInputLabel} lifted  ⚡ Pressure: 0%  |  ${points.length} pts`;
+  telemetryStrip.classList.remove('telemetry-warning');
 }
 
 // ---------- clear / reset ----------
