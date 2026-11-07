@@ -368,3 +368,29 @@ main {
   #risk-score-block { flex-direction: column; }
   #risk-score-side { border-right: none; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
 }
+
+/* ---------- iPad layout: wrapping top bar + rotation-safe height ---------- */
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh; /* tracks Safari's toolbar showing/hiding; older browsers keep 100vh */
+}
+
+.topbar {
+  flex-wrap: wrap;          /* second row instead of pushing Analyze off-screen */
+  height: auto;
+  row-gap: 8px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.topbar-left { flex-wrap: wrap; min-width: 0; }
+.topbar-right { flex-wrap: wrap; margin-left: auto; }
+
+main {
+  flex: 1;
+  min-height: 0;
+  height: auto;             /* overrides the fixed calc() heights above */
+}

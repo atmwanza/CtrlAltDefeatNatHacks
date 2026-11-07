@@ -278,6 +278,7 @@ function resetCanvasState() {
   activePenPointerId = null;
   analyzeBtn.disabled = true;
   telemetryStrip.textContent = `Waiting for ${penLabel()}…`;
+  telemetryStrip.classList.remove('telemetry-warning');
   redrawCanvas();
 }
 
@@ -539,9 +540,21 @@ function generateSyntheticSpiral(kind) {
 
 beginDrawingBtn.addEventListener('click', () => instructionsOverlay.classList.add('hidden'));
 
-window.addEventListener('resize', () => {
-  if (canvasContainer.style.display !== 'none') initCanvas();
-});
+// Resize the canvas whenever its box actually changes size (rotation, Safari toolbar,
+// top bar wrapping). ResizeObserver fires after layout, unlike 'resize' on iOS Safari,
+// which can fire before the new size is known and leave the canvas stretched/offset.
+let lastCanvasSize = '';
+new ResizeObserver(() => {
+  if (canvasContainer.style.display === 'none') return;
+  const r = canvas.getBoundingClientRect();
+  if (r.width === 0 || r.height === 0) return;
+  const size = `${Math.round(r.width)}x${Math.round(r.height)}`;
+  if (size === lastCanvasSize) return;
+  const hadDrawing = lastCanvasSize !== '' && points.length > 0;
+  lastCanvasSize = size;
+  initCanvas();
+  if (hadDrawing) resetCanvasState(); // the spiral template moved, so old strokes no longer line up
+}).observe(canvasContainer);
 
 applyDeviceMode();
 initCanvas();
