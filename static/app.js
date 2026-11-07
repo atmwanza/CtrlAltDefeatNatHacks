@@ -68,6 +68,14 @@ deviceSelect.addEventListener('change', () => {
 // iOS Safari ignores user-scalable=no; block pinch-zoom gestures directly
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 
+// While the drawing view is up, block touch-scroll on the drawing area only (the Apple
+// Pencil also fires touch events in Safari). Buttons are left alone so taps register.
+document.addEventListener('touchmove', (e) => {
+  if (mainEl.classList.contains('drawing-locked') && canvasContainer.contains(e.target)) {
+    e.preventDefault();
+  }
+}, { passive: false });
+
 const RISK_BAND_LOW_MAX = 34;
 const RISK_BAND_MOD_MAX = 67;
 
@@ -95,7 +103,7 @@ function drawSpiralTemplate() {
   const w = rect.width, h = rect.height;
   const cx = w / 2, cy = h / 2;
   const maxR = Math.min(w, h) * 0.42;
-  const turns = 2;
+  const turns = 3;
   const thetaMax = turns * 2 * Math.PI;
   const b = maxR / thetaMax;
   spiralGeometry = { cx, cy, b };
@@ -299,12 +307,6 @@ drawAgainBtn.addEventListener('click', () => {
   resetCanvasState();
 });
 
-drawAgainBtn.addEventListener('click', () => {
-  showDrawingView(); // must be visible BEFORE initCanvas() or getBoundingClientRect() returns 0x0
-  initCanvas();
-  resetCanvasState();
-});
-
 // ---------- submit + analyze ----------
 
 analyzeBtn.addEventListener('click', () => submitDrawing('live'));
@@ -340,7 +342,7 @@ async function submitDrawing(source) {
     alert(`Analysis failed: ${err.message}`);
   } finally {
     analyzeBtn.textContent = 'Analyze Spiral';
-    analyzeBtn.disabled = points.length < MIN_POINTS_TO_ANALYZE;
+    analyzeBtn.disabled = points.length < MIN_POINTS_TO_ANALYZE || !resultsPanel.classList.contains('hidden');
   }
 }
 
@@ -509,7 +511,7 @@ function generateSyntheticSpiral(kind) {
   const rect = canvas.getBoundingClientRect();
   const cx = rect.width / 2, cy = rect.height / 2;
   const maxR = Math.min(rect.width, rect.height) * 0.42;
-  const turns = 2;
+  const turns = 3;
   const thetaMax = turns * 2 * Math.PI;
   const b = maxR / thetaMax;
 

@@ -81,25 +81,3 @@
 </body>
 </html>
 
-/* ---------- iPad / Safari ---------- */
-
-/* Stop Safari's long-press text selection, magnifier and callout from hijacking the Pencil */
-body, #canvas-container, #spiral-canvas {
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-
-/* No double-tap-to-zoom on buttons (iOS ignores user-scalable=no) */
-.btn, .device-select { touch-action: manipulation; }
-
-.device-select {
-  min-height: 40px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-}

@@ -53,27 +53,32 @@ REF = build_reference()
 
 
 # ---------- per-device calibration ----------
-# Tremor and pressure read higher on some devices (e.g. Apple Pencil in Safari) even for
-# healthy hands. Healthy drawings saved in calibration/<platform>/ set that device's
-# "normal", and its readings are shifted so that normal lines up with the UCI healthy group.
+# Some features read differently on a tablet than on the UCI Wacom, even for healthy hands
+# (e.g. people press more lightly on glass, which raises pressure variability). Healthy
+# drawings in calibration/<platform>/ set that device's "normal"; each calibrated feature
+# is scaled by (UCI healthy mean / device healthy mean). Only pen input is calibrated.
 
-CALIBRATED = ['tremor_pct', 'p_cv']
+CALIBRATED = ['p_cv', 'tremor_pct']
+
+
+def load_calibration_drawing(path):
+    if path.suffix == '.json':                       # saved by /analyze (recordings/)
+        d = json.loads(path.read_text())
+        return {'x': d['x'], 'y': d['y'], 'timestamp': d['t'], 'pressure': d['p']}
+    return load_spiral(path)                         # UCI-format .txt (Joel's tablet_drawings)
 
 
 def build_calibration():
-    offsets = {}
+    factors = {}
     for folder in (HERE / 'calibration').glob('*'):
-        feats = []
-        for f in folder.glob('*.json'):
-            d = json.loads(f.read_text())
-            feats.append(extract_features({'x': d['x'], 'y': d['y'],
-                                           'timestamp': d['t'], 'pressure': d['p']}))
+        paths = list(folder.glob('*.json')) + list(folder.glob('*.txt'))
+        feats = [extract_features(load_calibration_drawing(p)) for p in paths]
         if len(feats) >= 3:
-            offsets[folder.name] = {k: float(np.mean([x[k] for x in feats])) - REF[k]['h_mean']
+            factors[folder.name] = {k: REF[k]['h_mean'] / float(np.mean([f[k] for f in feats]))
                                     for k in CALIBRATED}
-            print(f"Calibration '{folder.name}': {len(feats)} drawings, offsets "
-                  + ", ".join(f"{k} {v:+.3f}" for k, v in offsets[folder.name].items()))
-    return offsets
+            print(f"Calibration '{folder.name}': {len(feats)} drawings, factors "
+                  + ", ".join(f"{k} x{v:.2f}" for k, v in factors[folder.name].items()))
+    return factors
 
 
 CAL = build_calibration()
@@ -108,10 +113,10 @@ def analyse(data, pointer_type='pen', n_strokes=1, platform=None):
     except (ValueError, ZeroDivisionError, IndexError) as e:
         raise HTTPException(400, f"Could not analyse drawing: {e}")
 
-    calibration = CAL.get(platform, {})
-    for name, offset in calibration.items():
+    calibration = CAL.get(platform, {}) if pointer_type == 'pen' else {}
+    for name, factor in calibration.items():
         if name in feats:
-            feats[name] = max(0.0, feats[name] - offset)
+            feats[name] *= factor
 
     warnings = quality_warnings(data, n_strokes, pointer_type)
     if n_turns < 1:
@@ -130,7 +135,7 @@ def analyse(data, pointer_type='pen', n_strokes=1, platform=None):
             'scored': name in SCORED,
         }
 
-    elevated = [FEATURE_TEXT[n] for n, f in features.items() if f['percentile_pd'] >= 67]
+    elevated = [FEATURE_TEXT[n] for n, f in features.items() if f['scored'] and f['percentile_pd'] >= 67]
     if elevated:
         listed = elevated[0] if len(elevated) == 1 else ", ".join(elevated[:-1]) + " and " + elevated[-1]
         interpretation = f"Compared with the healthy reference group, this drawing shows {listed}."
@@ -181,6 +186,12 @@ def analyze(d: Drawing):
         raise HTTPException(400, "x, y, t and p must be the same length.")
     data = {'x': d.x, 'y': d.y, 'timestamp': d.t, 'pressure': d.p}
     n_strokes = d.num_strokes or len(set(d.s)) or 1
+    # use only the longest stroke: the UCI recordings are one continuous pass, and joining
+    # strokes would add a fake jump at every pen lift
+    if len(set(d.s)) > 1 and len(d.s) == len(d.x):
+        longest = max(set(d.s), key=d.s.count)
+        keep = [i for i, s in enumerate(d.s) if s == longest]
+        data = {k: [v[i] for i in keep] for k, v in data.items()}
     result = analyse(data, d.pointer_type, n_strokes, d.device_platform)
 
     # keep every drawing so devices can be calibrated later
