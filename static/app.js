@@ -322,7 +322,17 @@ function displayResults(data) {
     data.disclaimer || 'Screening tool only. Not a clinical diagnosis.';
 
   const mockBadge = document.getElementById('mock-badge');
-  mockBadge.classList.toggle('hidden', !data.is_mock);
+  if (data.is_mock) {
+    mockBadge.textContent = 'MOCK DATA';
+    mockBadge.classList.remove('badge-live');
+    mockBadge.classList.remove('hidden');
+  } else if (data.backend_label) {
+    mockBadge.textContent = data.backend_label;
+    mockBadge.classList.add('badge-live');
+    mockBadge.classList.remove('hidden');
+  } else {
+    mockBadge.classList.add('hidden');
+  }
 
   drawTremorHeatmap();
 }

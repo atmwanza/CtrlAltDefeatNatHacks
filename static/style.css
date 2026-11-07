@@ -75,6 +75,10 @@ html, body {
   white-space: nowrap;
 }
 
+.mock-badge.badge-live {
+  background: var(--low);
+}
+
 .btn {
   min-height: 48px;
   padding: 0 18px;
