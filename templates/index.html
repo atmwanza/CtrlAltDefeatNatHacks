@@ -13,7 +13,7 @@
     <h1>DrawDx</h1>
     <p class="overlay-sub">Parkinson's spiral screening</p>
     <ol class="overlay-steps">
-      <li>Press the S&nbsp;Pen down firmly on the <strong>START</strong> dot, the way you'd write with a pen.</li>
+      <li>Press the <span class="pen-name">S&nbsp;Pen</span> down firmly on the <strong>START</strong> dot, the way you'd write with a pen.</li>
       <li>Keeping that pressure, trace the gray spiral to the <strong>FINISH</strong> ring in one stroke, at a steady pace (about 15–30 seconds).</li>
       <li>Once you reach the finish ring, tap <strong>Analyze Spiral</strong>.</li>
     </ol>
@@ -25,6 +25,11 @@
   <div class="topbar-left">
     <span class="brand">DrawDx</span>
     <span id="mock-badge" class="mock-badge hidden">MOCK DATA</span>
+    <select id="device-select" class="device-select" aria-label="Tablet type">
+      <option value="auto">Auto-detect</option>
+      <option value="android">Android · S Pen</option>
+      <option value="ios">iPad · Apple Pencil</option>
+    </select>
     <span id="telemetry-strip" class="telemetry">Waiting for S Pen&hellip;</span>
   </div>
   <div class="topbar-right">
@@ -79,3 +84,4 @@
 <script src="/static/app.js"></script>
 </body>
 </html>
+

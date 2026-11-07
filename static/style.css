@@ -411,3 +411,62 @@ main {
   #risk-score-block { flex-direction: column; }
   #risk-score-side { border-right: none; border-bottom: 1px solid var(--border); padding-bottom: 12px; }
 }
+
+/* ---------- iPad / Safari ---------- */
+
+/* Stop Safari's long-press text selection, magnifier and callout from hijacking the Pencil */
+body, #canvas-container, #spiral-canvas {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* No double-tap-to-zoom on buttons (iOS ignores user-scalable=no) */
+.btn, .device-select { touch-action: manipulation; }
+
+.device-select {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+/* ---------- iPad layout: top bar that never pushes Analyze off-screen ---------- */
+
+body {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh; /* tracks Safari's toolbar showing/hiding; older browsers keep 100vh */
+}
+
+.topbar {
+  flex-wrap: nowrap;
+  height: auto;
+  row-gap: 8px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.topbar-left { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; }
+.topbar-right { flex: 0 0 auto; }
+
+/* long telemetry text shrinks with "…" instead of changing the bar's height mid-drawing */
+.telemetry { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* narrow screens (iPad portrait): always two fixed rows */
+@media (max-width: 1000px) {
+  .topbar { flex-wrap: wrap; }
+  .topbar-left { flex-basis: 100%; }
+  .topbar-right { margin-left: auto; }
+}
+
+main {
+  flex: 1;
+  min-height: 0;
+  height: auto;             /* overrides the fixed calc() heights above */
+}

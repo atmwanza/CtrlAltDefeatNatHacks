@@ -15,6 +15,7 @@ const instructionsOverlay = document.getElementById('instructions-overlay');
 const resultsPanel = document.getElementById('results-panel');
 const drawWarning = document.getElementById('draw-warning');
 
+const mainEl = document.querySelector('main');
 const MIN_POINTS_TO_ANALYZE = 150;
 const ANALYZE_ENDPOINT = '/analyze'; // swap to teammates' real backend URL once /analyze is live; mock_server.py answers this today
 
@@ -25,6 +26,56 @@ let activePenPointerId = null;
 let spiralGeometry = null; // {cx, cy, b} set by drawSpiralTemplate(), reused by the heatmap
 let lastInputLabel = 'S Pen';
 let lastPointerType = 'pen'; // what actually gets reported to the backend — never hardcode this in the payload
+
+// ---------- device mode (Android S Pen vs iPad Apple Pencil) ----------
+
+const deviceSelect = document.getElementById('device-select');
+
+function detectPlatform() {
+  const ua = navigator.userAgent;
+  // iPadOS Safari reports itself as a Mac, so check for a touchscreen too
+  const isIpad = /iPad|iPhone/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 0);
+  return isIpad ? 'ios' : 'android';
+}
+
+function loadDeviceChoice() {
+  try { return localStorage.getItem('drawdx-device') || 'auto'; } catch (_) { return 'auto'; }
+}
+
+function saveDeviceChoice(value) {
+  try { localStorage.setItem('drawdx-device', value); } catch (_) { /* storage unavailable */ }
+}
+
+function currentPlatform() {
+  return deviceSelect.value === 'auto' ? detectPlatform() : deviceSelect.value;
+}
+
+function penLabel() {
+  return currentPlatform() === 'ios' ? 'Apple Pencil' : 'S Pen';
+}
+
+function applyDeviceMode() {
+  document.querySelectorAll('.pen-name').forEach(el => { el.textContent = penLabel(); });
+  if (points.length === 0) telemetryStrip.textContent = `Waiting for ${penLabel()}…`;
+  if (lastPointerType === 'pen') lastInputLabel = penLabel();
+}
+
+deviceSelect.value = loadDeviceChoice();
+deviceSelect.addEventListener('change', () => {
+  saveDeviceChoice(deviceSelect.value);
+  applyDeviceMode();
+});
+
+// iOS Safari ignores user-scalable=no; block pinch-zoom gestures directly
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+
+// While the drawing view is up, block touch-scroll on the drawing area only (the Apple
+// Pencil also fires touch events in Safari). Buttons are left alone so taps register.
+document.addEventListener('touchmove', (e) => {
+  if (mainEl.classList.contains('drawing-locked') && canvasContainer.contains(e.target)) {
+    e.preventDefault();
+  }
+}, { passive: false });
 
 const RISK_BAND_LOW_MAX = 34;
 const RISK_BAND_MOD_MAX = 67;
@@ -141,7 +192,7 @@ canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
   activePenPointerId = e.pointerId;
   lastPointerType = e.pointerType;
-  lastInputLabel = e.pointerType === 'pen' ? 'S Pen' : 'Mouse';
+  lastInputLabel = e.pointerType === 'pen' ? penLabel() : 'Mouse';
   isDrawing = true;
   hideDrawWarning();
   addPoint(e);
@@ -258,13 +309,23 @@ function resetCanvasState() {
   activePenPointerId = null;
   hideDrawWarning();
   analyzeBtn.disabled = true;
-  telemetryStrip.textContent = 'Waiting for S Pen…';
+  telemetryStrip.textContent = `Waiting for ${penLabel()}…`;
+  telemetryStrip.classList.remove('telemetry-warning');
   redrawCanvas();
 }
 
-drawAgainBtn.addEventListener('click', () => {
+// Results are scrollable, the drawing view is not. Without resetting, Safari keeps the
+// results' scroll position and snaps it back mid-drawing, shifting the canvas under the pen.
+function showDrawingView() {
   resultsPanel.classList.add('hidden');
-  canvasContainer.style.display = 'block'; // must be visible BEFORE initCanvas() or getBoundingClientRect() returns 0x0
+  mainEl.scrollTop = 0;
+  window.scrollTo(0, 0);
+  mainEl.classList.add('drawing-locked');
+  canvasContainer.style.display = 'block';
+}
+
+drawAgainBtn.addEventListener('click', () => {
+  showDrawingView(); // must be visible BEFORE initCanvas() or getBoundingClientRect() returns 0x0
   initCanvas();
   resetCanvasState();
 });
@@ -328,6 +389,10 @@ async function submitDrawing(source) {
     device_pixel_ratio: window.devicePixelRatio || 1,
     pointer_type: lastPointerType, // real captured type — never hardcode; mouse data has no real pressure signal
     num_strokes: new Set(points.map(p => p.s)).size,
+    // The backend picks its tablet calibration by this and saves every drawing under
+    // it. Demo spirals are synthetic, so they must never be calibrated or end up in
+    // a calibration set.
+    device_platform: source === 'live' ? currentPlatform() : 'demo',
   };
 
   analyzeBtn.disabled = true;
@@ -369,6 +434,8 @@ function pctBand(pct) {
 
 function displayResults(data) {
   canvasContainer.style.display = 'none';
+  mainEl.classList.remove('drawing-locked');
+  mainEl.scrollTop = 0;
   resultsPanel.classList.remove('hidden');
 
   const scoreEl = document.getElementById('risk-score-number');
@@ -498,8 +565,7 @@ demoPdBtn.addEventListener('click', () => loadDemo('pd'));
 
 function loadDemo(kind) {
   dismissOverlayIfNeeded();
-  resultsPanel.classList.add('hidden');
-  canvasContainer.style.display = 'block';
+  showDrawingView();
   initCanvas();
   resetCanvasState();
   lastInputLabel = 'Demo';
@@ -578,8 +644,23 @@ function generateSyntheticSpiral(kind) {
 
 beginDrawingBtn.addEventListener('click', () => instructionsOverlay.classList.add('hidden'));
 
-window.addEventListener('resize', () => {
-  if (canvasContainer.style.display !== 'none') initCanvas();
-});
+// Resize the canvas whenever its box actually changes size (rotation, Safari toolbar).
+// ResizeObserver fires after layout, unlike 'resize' on iOS Safari, which can fire
+// before the new size is known and leave the canvas stretched/offset.
+let lastCanvasWidth = 0, lastCanvasHeight = 0;
+new ResizeObserver(() => {
+  if (canvasContainer.style.display === 'none') return;
+  const r = canvas.getBoundingClientRect();
+  const w = Math.round(r.width), h = Math.round(r.height);
+  if (w === 0 || h === 0 || (w === lastCanvasWidth && h === lastCanvasHeight)) return;
+  const rotated = lastCanvasWidth !== 0 && w !== lastCanvasWidth;
+  lastCanvasWidth = w;
+  lastCanvasHeight = h;
+  initCanvas();
+  // a width change means the tablet was rotated: the spiral moved, so old strokes no longer line up
+  if (rotated && points.length > 0) resetCanvasState();
+}).observe(canvasContainer);
 
+applyDeviceMode();
+mainEl.classList.add('drawing-locked');
 initCanvas();
