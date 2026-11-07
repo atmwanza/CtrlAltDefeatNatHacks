@@ -220,3 +220,5 @@ __marimo__/
 .streamlit/secrets.toml
 .venv/
 backend/demo_data/
+.venv/
+backend/demo_data/
