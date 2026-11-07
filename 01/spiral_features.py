@@ -16,7 +16,7 @@ def extract_features(data):
 
     return {
         'pressure_cv': statistics.stdev(p),
-        'grip_sd': statistics.stdev(g),
-        'duration': duration,
-        'speed': (path / size) / duration,
+        #'grip_sd': statistics.stdev(g),
+        #'duration': duration,
+        #'speed': (path / size) / duration,
     }
