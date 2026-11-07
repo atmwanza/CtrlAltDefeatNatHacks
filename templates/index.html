@@ -14,7 +14,7 @@
     <p class="overlay-sub">Parkinson's spiral screening</p>
     <ol class="overlay-steps">
       <li>Trace the gray spiral from the <strong>START</strong> dot at the center to the <strong>FINISH</strong> ring at the outside.</li>
-      <li>Use the S&nbsp;Pen, drawing naturally — there's no need to go slowly or carefully.</li>
+      <li>Use the <span class="pen-name">S&nbsp;Pen</span>, drawing naturally — there's no need to go slowly or carefully.</li>
       <li>Once you reach the finish ring, tap <strong>Analyze Spiral</strong>.</li>
     </ol>
     <button id="begin-drawing-btn" class="btn btn-primary">Begin Drawing</button>
@@ -25,6 +25,11 @@
   <div class="topbar-left">
     <span class="brand">DrawDx</span>
     <span id="mock-badge" class="mock-badge hidden">MOCK DATA</span>
+    <select id="device-select" class="device-select" aria-label="Tablet type">
+      <option value="auto">Auto-detect</option>
+      <option value="android">Android · S Pen</option>
+      <option value="ios">iPad · Apple Pencil</option>
+    </select>
     <span id="telemetry-strip" class="telemetry">Waiting for S Pen&hellip;</span>
   </div>
   <div class="topbar-right">
@@ -76,3 +81,26 @@
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
+
+/* ---------- iPad / Safari ---------- */
+
+/* Stop Safari's long-press text selection, magnifier and callout from hijacking the Pencil */
+body, #canvas-container, #spiral-canvas {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* No double-tap-to-zoom on buttons (iOS ignores user-scalable=no) */
+.btn, .device-select { touch-action: manipulation; }
+
+.device-select {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}

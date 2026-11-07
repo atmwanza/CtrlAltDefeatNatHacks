@@ -25,6 +25,48 @@ let spiralGeometry = null; // {cx, cy, b} set by drawSpiralTemplate(), reused by
 let lastInputLabel = 'S Pen';
 let lastPointerType = 'pen'; // what actually gets reported to the backend — never hardcode this in the payload
 
+// ---------- device mode (Android S Pen vs iPad Apple Pencil) ----------
+
+const deviceSelect = document.getElementById('device-select');
+
+function detectPlatform() {
+  const ua = navigator.userAgent;
+  // iPadOS Safari reports itself as a Mac, so check for a touchscreen too
+  const isIpad = /iPad|iPhone/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 0);
+  return isIpad ? 'ios' : 'android';
+}
+
+function loadDeviceChoice() {
+  try { return localStorage.getItem('drawdx-device') || 'auto'; } catch (_) { return 'auto'; }
+}
+
+function saveDeviceChoice(value) {
+  try { localStorage.setItem('drawdx-device', value); } catch (_) { /* storage unavailable */ }
+}
+
+function currentPlatform() {
+  return deviceSelect.value === 'auto' ? detectPlatform() : deviceSelect.value;
+}
+
+function penLabel() {
+  return currentPlatform() === 'ios' ? 'Apple Pencil' : 'S Pen';
+}
+
+function applyDeviceMode() {
+  document.querySelectorAll('.pen-name').forEach(el => { el.textContent = penLabel(); });
+  if (points.length === 0) telemetryStrip.textContent = `Waiting for ${penLabel()}…`;
+  if (lastPointerType === 'pen') lastInputLabel = penLabel();
+}
+
+deviceSelect.value = loadDeviceChoice();
+deviceSelect.addEventListener('change', () => {
+  saveDeviceChoice(deviceSelect.value);
+  applyDeviceMode();
+});
+
+// iOS Safari ignores user-scalable=no; block pinch-zoom gestures directly
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+
 const RISK_BAND_LOW_MAX = 34;
 const RISK_BAND_MOD_MAX = 67;
 
@@ -123,7 +165,7 @@ canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
   activePenPointerId = e.pointerId;
   lastPointerType = e.pointerType;
-  lastInputLabel = e.pointerType === 'pen' ? 'S Pen' : 'Mouse';
+  lastInputLabel = e.pointerType === 'pen' ? penLabel() : 'Mouse';
   isDrawing = true;
   addPoint(e);
   dismissOverlayIfNeeded();
@@ -235,7 +277,7 @@ function resetCanvasState() {
   isDrawing = false;
   activePenPointerId = null;
   analyzeBtn.disabled = true;
-  telemetryStrip.textContent = 'Waiting for S Pen…';
+  telemetryStrip.textContent = `Waiting for ${penLabel()}…`;
   redrawCanvas();
 }
 
@@ -263,6 +305,7 @@ async function submitDrawing(source) {
     device_pixel_ratio: window.devicePixelRatio || 1,
     pointer_type: lastPointerType, // real captured type — never hardcode; mouse data has no real pressure signal
     num_strokes: new Set(points.map(p => p.s)).size,
+    device_platform: currentPlatform()
   };
 
   analyzeBtn.disabled = true;
@@ -500,4 +543,5 @@ window.addEventListener('resize', () => {
   if (canvasContainer.style.display !== 'none') initCanvas();
 });
 
+applyDeviceMode();
 initCanvas();
