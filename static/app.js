@@ -165,6 +165,7 @@ canvas.addEventListener('pointercancel', (e) => {
   if (e.pointerType !== 'pen') return;
   if (e.pointerId !== activePenPointerId) return;
   isDrawing = false;
+  strokeIndex += 1; // a cancelled contact is still a pen lift; reusing its s would join two contacts into one stroke
   showLiftedTelemetry();
 });
 
@@ -375,15 +376,26 @@ function displayResults(data) {
     const card = document.createElement('div');
     const band2 = pctBand(f.percentile_pd);
     card.className = `feature-card ${band2}`;
-    const pinLeft = Math.min(96, Math.max(4, f.percentile_pd));
+    const pinLeft = Math.min(96, Math.max(4, Number(f.percentile_pd) || 0));
+    const unit = FEATURE_UNITS[key] || '';
+    const tag = f.scored === false ? '<span class="feature-tag">not in score</span>' : '';
     card.innerHTML = `
-      <div class="feature-name">${featureLabel(key)}</div>
-      <div class="feature-value">${f.value}</div>
+      <div class="feature-name">${escapeHtml(featureLabel(key))}${tag}</div>
+      <div class="feature-value">${escapeHtml(f.value)}${unit}</div>
       <div class="gauge-track"><div class="gauge-pin" style="left:${pinLeft}%"></div></div>
-      <div class="feature-refs"><span>ctrl ${f.ctrl_mean}</span><span>PD ${f.pd_mean}</span></div>
+      <div class="feature-refs"><span>ctrl ${escapeHtml(f.ctrl_mean)}${unit}</span><span>PD ${escapeHtml(f.pd_mean)}${unit}</span></div>
     `;
     grid.appendChild(card);
   }
+
+  const warningsBlock = document.getElementById('warnings-block');
+  const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+  warningsBlock.replaceChildren(...warnings.map(w => {
+    const li = document.createElement('li');
+    li.textContent = w;
+    return li;
+  }));
+  warningsBlock.classList.toggle('hidden', warnings.length === 0);
 
   document.getElementById('interpretation-block').textContent = data.interpretation || '';
   document.getElementById('disclaimer-block').textContent =
@@ -411,10 +423,17 @@ function featureLabel(key) {
     vel_cv: 'Velocity Variability',
     dom_freq: 'Dominant Frequency',
     tremor_pct: 'Tremor Share',
-    p_norm: 'Pressure Level',
     p_cv: 'Pressure Variability',
   };
   return labels[key] || key;
+}
+
+const FEATURE_UNITS = { dom_freq: ' Hz' };
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+  ));
 }
 
 function drawTremorHeatmap() {
@@ -479,7 +498,7 @@ function loadDemo(kind) {
 
   const synthetic = generateSyntheticSpiral(kind);
   let i = 0;
-  const pointsPerFrame = 25;
+  const pointsPerFrame = 40; // ~2-3 s of animation for an 18-24 s synthetic drawing
 
   function step() {
     const end = Math.min(i + pointsPerFrame, synthetic.length);
@@ -507,7 +526,7 @@ function generateSyntheticSpiral(kind) {
   const b = maxR / thetaMax;
 
   const isPd = kind === 'pd';
-  const durationMs = isPd ? 9000 : 6000;
+  const durationMs = isPd ? 24000 : 18000; // inside the UCI reference range (14-48 s)
   const hz = 200;
   const n = Math.round((durationMs / 1000) * hz);
   // Hz here means oscillations per second of WALL-CLOCK TIME, matching what a

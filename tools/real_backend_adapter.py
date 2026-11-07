@@ -14,6 +14,7 @@ Only 3 features exist in Adam's branch today (pressure_cv, tremor, deviation).
 percentile_pd is a linear interpolation between the control and PD means,
 clamped 0-100, not an official percentile ranking.
 """
+import math
 import os
 import sys
 import time
@@ -197,7 +198,10 @@ def analyze():
             "ctrl_mean": round(ctrl_mean, 4),
             "pd_mean": round(pd_mean, 4),
             "percentile_pd": int(max(0, min(100, round(pct)))),
+            "scored": True,
         }
+
+    warnings = quality_warnings(data, payload.get("pointer_type"))
 
     print(
         f"[real_backend_adapter] {len(xs)} points -> level {level}/5, "
@@ -213,14 +217,53 @@ def analyze():
 
     return jsonify({
         "risk_score": round(probability * 100),
+        "level": int(level),
         "features": features_out,
+        "warnings": warnings,
         "interpretation": (
-            f"Real-backend comparison (Adam's model, {len(feats)} of 6 features) against the live UCI "
+            f"Real-backend comparison (Adam's model, {len(feats)} features) against the live UCI "
             f"reference set. Scored level {level}/5 on his classifier."
         ),
         "disclaimer": "Screening tool only. Not a clinical diagnosis. Please discuss any concerns with a clinician.",
-        "backend_label": f"LIVE — Adam's model, {len(feats)}/6 features, real UCI data",
+        "backend_label": f"LIVE — Adam's model, {len(feats)} features, real UCI data",
     })
+
+
+def quality_warnings(data, pointer_type):
+    """Non-blocking notes returned with the score. The frontend already refuses
+    drawings under 10 s or under 30% pressure; these cover what gets through."""
+    x, y, t = data["x"], data["y"], data["timestamp"]
+    out = []
+    seconds = (t[-1] - t[0]) / 1000 if t else 0
+    if seconds < 10:
+        out.append(f"Short drawing ({seconds:.0f} s). The reference recordings took 14-48 s.")
+    if len(x) < 500:
+        out.append(f"Few samples ({len(x)}). Results are less reliable.")
+    turns = spiral_turns(x, y)
+    if turns < 1:
+        out.append(f"Less than one full turn ({turns:.1f}).")
+    elif turns < 2.5:
+        out.append(f"Only {turns:.1f} of the template's 3 turns were drawn.")
+    if pointer_type == "mouse":
+        out.append("Drawn with a mouse: pressure is a fixed 0.5, so pressure features are not meaningful.")
+    return out
+
+
+def spiral_turns(x, y):
+    if len(x) < 2:
+        return 0.0
+    cx, cy = sum(x) / len(x), sum(y) / len(y)
+    total, prev = 0.0, math.atan2(y[0] - cy, x[0] - cx)
+    for xi, yi in zip(x[1:], y[1:]):
+        cur = math.atan2(yi - cy, xi - cx)
+        step = cur - prev
+        while step > math.pi:
+            step -= 2 * math.pi
+        while step < -math.pi:
+            step += 2 * math.pi
+        total += step
+        prev = cur
+    return abs(total) / (2 * math.pi)
 
 
 if __name__ == "__main__":
