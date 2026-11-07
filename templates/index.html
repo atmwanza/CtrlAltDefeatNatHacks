@@ -13,8 +13,8 @@
     <h1>DrawDx</h1>
     <p class="overlay-sub">Parkinson's spiral screening</p>
     <ol class="overlay-steps">
-      <li>Trace the gray spiral from the <strong>START</strong> dot at the center to the <strong>FINISH</strong> ring at the outside.</li>
-      <li>Use the S&nbsp;Pen, drawing naturally — there's no need to go slowly or carefully.</li>
+      <li>Press the S&nbsp;Pen down firmly on the <strong>START</strong> dot, the way you'd write with a pen.</li>
+      <li>Keeping that pressure, trace the gray spiral to the <strong>FINISH</strong> ring in one stroke, at a steady pace (about 15–30 seconds).</li>
       <li>Once you reach the finish ring, tap <strong>Analyze Spiral</strong>.</li>
     </ol>
     <button id="begin-drawing-btn" class="btn btn-primary">Begin Drawing</button>
@@ -38,6 +38,7 @@
 <main>
   <div id="canvas-container">
     <canvas id="spiral-canvas"></canvas>
+    <div id="draw-warning" class="draw-warning hidden" role="alert"></div>
   </div>
 
   <section id="results-panel" class="hidden">

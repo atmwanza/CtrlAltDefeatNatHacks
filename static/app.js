@@ -13,6 +13,7 @@ const drawAgainBtn = document.getElementById('draw-again-btn');
 const beginDrawingBtn = document.getElementById('begin-drawing-btn');
 const instructionsOverlay = document.getElementById('instructions-overlay');
 const resultsPanel = document.getElementById('results-panel');
+const drawWarning = document.getElementById('draw-warning');
 
 const MIN_POINTS_TO_ANALYZE = 150;
 const ANALYZE_ENDPOINT = '/analyze'; // swap to teammates' real backend URL once /analyze is live; mock_server.py answers this today
@@ -27,6 +28,16 @@ let lastPointerType = 'pen'; // what actually gets reported to the backend — n
 
 const RISK_BAND_LOW_MAX = 34;
 const RISK_BAND_MOD_MAX = 67;
+
+// Match the UCI static spiral test the reference data was recorded on: ~3
+// turns, clockwise from the center. The backend's deviation feature scores a
+// perfectly drawn 2-turn spiral worse than the average healthy UCI subject
+// (fewer turns biases its center estimate), so a 2-turn template made healthy
+// people look PD-like before they'd drawn anything wrong.
+const SPIRAL_TURNS = 3;
+function spiralAngle(theta) {
+  return -theta - Math.PI / 2; // starts pointing up, winds clockwise like the UCI files
+}
 
 // ---------- canvas setup ----------
 
@@ -52,8 +63,7 @@ function drawSpiralTemplate() {
   const w = rect.width, h = rect.height;
   const cx = w / 2, cy = h / 2;
   const maxR = Math.min(w, h) * 0.42;
-  const turns = 2;
-  const thetaMax = turns * 2 * Math.PI;
+  const thetaMax = SPIRAL_TURNS * 2 * Math.PI;
   const b = maxR / thetaMax;
   spiralGeometry = { cx, cy, b };
 
@@ -63,8 +73,8 @@ function drawSpiralTemplate() {
   ctx.beginPath();
   for (let theta = 0; theta <= thetaMax; theta += 0.05) {
     const r = b * theta;
-    const x = cx + r * Math.cos(theta - Math.PI / 2);
-    const y = cy + r * Math.sin(theta - Math.PI / 2);
+    const x = cx + r * Math.cos(spiralAngle(theta));
+    const y = cy + r * Math.sin(spiralAngle(theta));
     if (theta === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
   ctx.stroke();
@@ -80,8 +90,8 @@ function drawSpiralTemplate() {
   ctx.globalAlpha = 1;
 
   // finish zone: green ring at outer endpoint
-  const endX = cx + maxR * Math.cos(thetaMax - Math.PI / 2);
-  const endY = cy + maxR * Math.sin(thetaMax - Math.PI / 2);
+  const endX = cx + maxR * Math.cos(spiralAngle(thetaMax));
+  const endY = cy + maxR * Math.sin(spiralAngle(thetaMax));
   ctx.strokeStyle = '#2e7d52';
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -125,6 +135,7 @@ canvas.addEventListener('pointerdown', (e) => {
   lastPointerType = e.pointerType;
   lastInputLabel = e.pointerType === 'pen' ? 'S Pen' : 'Mouse';
   isDrawing = true;
+  hideDrawWarning();
   addPoint(e);
   dismissOverlayIfNeeded();
 });
@@ -234,6 +245,7 @@ function resetCanvasState() {
   strokeIndex = 0;
   isDrawing = false;
   activePenPointerId = null;
+  hideDrawWarning();
   analyzeBtn.disabled = true;
   telemetryStrip.textContent = 'Waiting for S Pen…';
   redrawCanvas();
@@ -248,7 +260,50 @@ drawAgainBtn.addEventListener('click', () => {
 
 // ---------- submit + analyze ----------
 
-analyzeBtn.addEventListener('click', () => submitDrawing('live'));
+analyzeBtn.addEventListener('click', () => {
+  const problem = drawingProblem();
+  if (problem) {
+    showDrawWarning(problem);
+    return;
+  }
+  submitDrawing('live');
+});
+
+// The reference data (UCI static spiral test) was drawn over 14-48 s at firm
+// pressure. On the tablet, drawings under ~10 s or at very light pressure
+// produced healthy people's highest scores (calibration set: a 13%-pressure
+// drawing still scored 100 after calibration), so those get redrawn instead
+// of scored.
+const MIN_DRAW_SECONDS = 10;
+const MIN_MEDIAN_PRESSURE = 0.30;
+
+function drawingProblem() {
+  const counts = {};
+  points.forEach(p => { counts[p.s] = (counts[p.s] || 0) + 1; });
+  const longest = Number(Object.keys(counts).reduce((a, b) => (counts[a] >= counts[b] ? a : b)));
+  const stroke = points.filter(p => p.s === longest);
+  const seconds = (stroke[stroke.length - 1].t - stroke[0].t) / 1000;
+  if (seconds < MIN_DRAW_SECONDS) {
+    return `That took ${seconds.toFixed(0)} seconds. Tap Clear and redraw more slowly, at a steady pace for about 15–30 seconds.`;
+  }
+  if (lastPointerType === 'pen') {
+    const sorted = stroke.map(p => p.p).sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    if (median < MIN_MEDIAN_PRESSURE) {
+      return `The pen pressure was very light (${Math.round(median * 100)}%). Tap Clear and redraw, pressing firmly from the very start, as if writing with a pen.`;
+    }
+  }
+  return null;
+}
+
+function showDrawWarning(text) {
+  drawWarning.textContent = text;
+  drawWarning.classList.remove('hidden');
+}
+
+function hideDrawWarning() {
+  drawWarning.classList.add('hidden');
+}
 
 async function submitDrawing(source) {
   const rect = canvas.getBoundingClientRect();
@@ -448,8 +503,7 @@ function generateSyntheticSpiral(kind) {
   const rect = canvas.getBoundingClientRect();
   const cx = rect.width / 2, cy = rect.height / 2;
   const maxR = Math.min(rect.width, rect.height) * 0.42;
-  const turns = 2;
-  const thetaMax = turns * 2 * Math.PI;
+  const thetaMax = SPIRAL_TURNS * 2 * Math.PI;
   const b = maxR / thetaMax;
 
   const isPd = kind === 'pd';
@@ -477,8 +531,8 @@ function generateSyntheticSpiral(kind) {
     const wobble = Math.sin(phase);
 
     const idealR = b * theta;
-    const idealX = cx + idealR * Math.cos(theta - Math.PI / 2);
-    const idealY = cy + idealR * Math.sin(theta - Math.PI / 2);
+    const idealX = cx + idealR * Math.cos(spiralAngle(theta));
+    const idealY = cy + idealR * Math.sin(spiralAngle(theta));
     const x = idealX + tremorAmpPx * wobble * Math.cos(tremorAxis);
     const y = idealY + tremorAmpPx * wobble * Math.sin(tremorAxis);
 

@@ -6,13 +6,13 @@
     "schema": {
       "x": "float[] — CSS pixel X, canvas-relative (clientX minus canvas.getBoundingClientRect().left)",
       "y": "float[] — CSS pixel Y, canvas-relative (clientY minus canvas.getBoundingClientRect().top)",
-      "t": "float[] — DOMHighResTimeStamp in ms, as captured from the PointerEvent (or its coalesced events)",
-      "p": "float[] — S Pen pressure, 0.0-1.0, real values (not multiplied by any raw digitizer scale)",
+      "t": "float[] — DOMHighResTimeStamp in ms, as captured from the PointerEvent (or its coalesced events); the S Pen reports roughly every 2ms",
+      "p": "float[] — S Pen pressure, 0.0-1.0, real values",
       "s": "int[] — stroke index, 0-indexed, increments on pen lift",
       "canvas_width": "float — CSS pixel width of the canvas element",
       "canvas_height": "float — CSS pixel height of the canvas element",
       "device_pixel_ratio": "float — window.devicePixelRatio, typically 2.0 on Galaxy Tab S10 FE",
-      "pointer_type": "string — 'pen' or 'mouse'; backend should skip pressure-derived features if 'mouse'",
+      "pointer_type": "string — 'pen' or 'mouse'. Mouse pressure is a constant 0.5 (W3C spec), so pressure features are meaningless for 'mouse'. Tablet calibration applies only to 'pen'.",
       "num_strokes": "int — computed as new Set(points.map(p => p.s)).size"
     },
     "example": {
@@ -26,13 +26,42 @@
       "device_pixel_ratio": 2.0,
       "pointer_type": "pen",
       "num_strokes": 1
+    }
+  },
+  "spiral_template": {
+    "turns": 3,
+    "direction": "clockwise from the center, finishing at the top",
+    "why": "Matches the UCI static spiral test (~2.7-2.9 turns drawn, clockwise). The deviation feature scores a perfectly drawn 2-turn spiral (0.030) worse than the average healthy UCI subject (0.028), so the original 2-turn template made healthy people look PD-like."
+  },
+  "preprocessing": {
+    "steps": [
+      "Keep only the longest stroke (s value with the most points). UCI recordings are one continuous pass; joining strokes creates a fake jump at each pen lift.",
+      "Resample to an even 7ms grid with linear interpolation (UCI's rate). At the S Pen's ~2ms rate, integer coordinates move 0-1 unit per sample and that staircase inflates the tremor feature (measured: 0.111 at 2ms vs 0.084 at 7ms on the same drawing).",
+      "Convert to UCI line format X;Y;Z;Pressure;GripAngle;Timestamp;TestID (integers): scale x,y so the template spiral spans ~370 units, pressure * 1023, Z = 0, GripAngle = 0 (not available from PointerEvent, and unused by the features), timestamps in ms from 0, TestID = 0 (static spiral).",
+      "Run the existing feature extraction on that UCI-format data unchanged."
+    ],
+    "reference_implementation": "tools/real_backend_adapter.py — write_uci_file(), resample(), TABLET_CALIBRATION. The 20 calibration drawings are in tablet_drawings/calibration/ (UCI format, loadable with load_spiral)."
+  },
+  "tablet_calibration": {
+    "applies_to": "pointer_type == 'pen' only. UCI reference data is never modified.",
+    "factors": {
+      "p_cv": 0.62,
+      "dev_norm": 0.71,
+      "tremor_pct": "1.0 (not calibrated — adding it changed nothing and the feature is noisy drawing to drawing)"
     },
-    "normalization_notes": [
-      "x/y arrays are in CSS pixel space, not physical pixels — do not multiply by device_pixel_ratio.",
-      "Normalize coordinates before comparing to UCI: x_norm = (x - canvas_width/2) / (canvas_height/2); y_norm = (y - canvas_height/2) / (canvas_height/2).",
-      "Do not multiply pressure by any raw digitizer scale (e.g. 1023) to compare against UCI's Wacom values — Samsung applies a non-linear pressure curve the browser already resolves to 0.0-1.0. Use dimensionless ratios (e.g. std/mean) instead, which cancel hardware-curve differences.",
-      "grip_angle is not sent — the browser's PointerEvent API has no equivalent of the UCI dataset's digitizer grip-angle field."
-    ]
+    "how_derived": "factor = UCI healthy mean / tablet healthy mean, from 20 healthy drawings on the Galaxy Tab S10 FE (4 people x 5, averaged per person first).",
+    "validation": "Leave-one-person-out (each person's factor computed from the other three): healthy drawings scored >=50 went from 15/20 to 1/20. The remaining one was drawn at 13% pressure. Factor range across folds: p_cv 0.56-0.72, dev_norm 0.65-0.76. UCI leave-one-out accuracy is unchanged (13/15 healthy, 52/61 PD) because calibration only touches tablet input.",
+    "why_p_cv_differs": "On both devices, lighter pressure means higher p_cv (correlation -0.71 tablet, -0.53 UCI healthy). UCI healthy subjects pressed at a median 84% of max; tablet users at 34-56%. At matched pressure (45-62%), tablet p_cv (0.157) is no higher than UCI healthy (0.181). The gap comes from people pressing more lightly on the tablet.",
+    "why_dev_norm_differs": "Tablet deviation is ~1.4x UCI healthy even at steady pace and firm pressure; slower drawings ran somewhat higher (duration vs deviation correlation 0.32). Likely surface and display differences — the UCI data was recorded on a Wacom Cintiq 12WX pen display.",
+    "limitations": "4 healthy people only. No one with Parkinson's has drawn on this tablet, so it is assumed PD patients' values shift by the same factor. Recompute the factors if the device, template or preprocessing changes."
+  },
+  "input_checks": {
+    "where": "Frontend, before submitting (live drawings only; demo presets are exempt).",
+    "rules": {
+      "min_duration_seconds": 10,
+      "min_median_pressure": 0.30
+    },
+    "why": "UCI healthy subjects took 14-48 s. On the tablet, drawings under ~10 s or with very light pressure gave healthy people their highest scores; the 13%-pressure drawing scored 100 even after calibration. Failing drawings are redrawn rather than scored."
   },
   "response": {
     "content_type": "application/json",
@@ -40,33 +69,42 @@
       "risk_score": "int, 0-100",
       "features": {
         "<feature_key>": {
-          "value": "float — the patient's measured value",
+          "value": "float — the patient's measured value, after tablet calibration",
+          "raw_value": "float, optional — value before calibration",
           "ctrl_mean": "float — mean of the healthy control reference group",
           "pd_mean": "float — mean of the confirmed-PD reference group",
-          "percentile_pd": "int, 0-100 — where the patient's value falls on the control→PD spectrum; drives the gauge-bar pin position in the UI"
+          "percentile_pd": "int, 0-100 — where the value falls on the control→PD spectrum; drives the gauge-bar pin position in the UI"
         }
       },
       "interpretation": "string — short clinical narrative",
-      "disclaimer": "string — must be shown verbatim in the UI"
+      "disclaimer": "string — must be shown verbatim in the UI",
+      "is_mock": "bool, optional — true only from mock_server.py; the UI shows a red MOCK DATA badge",
+      "backend_label": "string, optional — shown as a green badge for a real backend"
     },
-    "feature_keys": ["dev_norm", "vel_cv", "dom_freq", "tremor_pct", "p_norm", "p_cv"],
-    "example": {
-      "risk_score": 71,
-      "features": {
-        "dev_norm":   {"value": 0.63, "ctrl_mean": 0.41, "pd_mean": 0.63, "percentile_pd": 68},
-        "vel_cv":     {"value": 1.12, "ctrl_mean": 0.85, "pd_mean": 1.09, "percentile_pd": 55},
-        "dom_freq":   {"value": 4.3,  "ctrl_mean": 7.6,  "pd_mean": 4.4,  "percentile_pd": 72},
-        "tremor_pct": {"value": 0.11, "ctrl_mean": 0.04, "pd_mean": 0.12, "percentile_pd": 65},
-        "p_norm":     {"value": 0.61, "ctrl_mean": 0.85, "pd_mean": 0.57, "percentile_pd": 55},
-        "p_cv":       {"value": 0.38, "ctrl_mean": 0.13, "pd_mean": 0.40, "percentile_pd": 60}
+    "feature_keys": {
+      "scored": ["dev_norm", "p_cv", "tremor_pct", "vel_cv"],
+      "display_only": ["dom_freq"],
+      "dropped": {
+        "p_norm": "Mean of a self-normalized signal is always 1.0; raw pressure level is device-dependent."
       },
-      "interpretation": "This drawing shows elevated spiral deviation, reduced pen pressure, and tremor activity in the frequency range associated with Parkinsonian tremor, relative to the healthy reference group.",
+      "status": "dev_norm, p_cv, tremor_pct exist in Adam's branch today. vel_cv (scored) and dom_freq (display-only) are agreed but not yet implemented."
+    },
+    "example": {
+      "risk_score": 9,
+      "features": {
+        "dev_norm":   {"value": 0.0298, "raw_value": 0.0420, "ctrl_mean": 0.0279, "pd_mean": 0.0462, "percentile_pd": 10},
+        "p_cv":       {"value": 0.0868, "raw_value": 0.1400, "ctrl_mean": 0.1134, "pd_mean": 0.1832, "percentile_pd": 0},
+        "tremor_pct": {"value": 0.1000, "raw_value": 0.1000, "ctrl_mean": 0.0839, "pd_mean": 0.1774, "percentile_pd": 17}
+      },
+      "interpretation": "Example only — values shaped like a healthy tablet drawing after calibration.",
       "disclaimer": "Screening tool only. Not a clinical diagnosis. Please discuss any concerns with a clinician."
     }
   },
   "minimum_points_before_analyze_enabled": 150,
   "reference_dataset": {
-    "source": "UCI Parkinson's Disease Spiral Drawings (dataset ID 395)",
-    "groups": "25 confirmed PD patients, 7 clean healthy controls (C_0002-C_0007, C_0009 — the other 8 of 15 control files have corrupted/wrapped timestamps and must be excluded)"
+    "source": "UCI Parkinson Disease Spiral Drawings Using Digitized Graphics Tablet (dataset ID 395), recorded on a Wacom Cintiq 12WX at Istanbul University Cerrahpasa Faculty of Medicine",
+    "groups": "15 healthy controls (all 15 usable — timestamps verified clean, no filtering) and 62 PD files (61 with static-spiral data: hw_dataset/parkinson + new_dataset/parkinson)",
+    "filter": "TestID == 0 (static spiral) only. 1 = dynamic spiral, 2 = circular motion.",
+    "do_not": "Do not drop controls to raise effect sizes: filtering to 7 controls inflates p_cv Cohen's d from 1.30 to 2.41."
   }
 }
