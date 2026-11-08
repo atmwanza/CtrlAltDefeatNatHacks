@@ -447,7 +447,7 @@ function displayResults(data) {
 
   const scoreEl = document.getElementById('risk-score-number');
   const bandEl = document.getElementById('risk-band-label');
-  scoreEl.textContent = Math.round(data.risk_score);
+  countUp(scoreEl, Math.round(data.risk_score));
   const band = riskBand(data.risk_score);
   scoreEl.className = band.cls;
   bandEl.textContent = band.label;
@@ -515,6 +515,23 @@ function displayResults(data) {
   }
 
   drawSteadinessHeatmap();
+}
+
+// Result numbers count up from 0 (about half a second), so the eye lands on them.
+function countUp(el, target, ms = 550) {
+  if (!el) return;
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce || !Number.isFinite(target)) { el.textContent = Math.round(target); return; }
+  const t0 = performance.now();
+  const step = now => {
+    const p = Math.min(1, (now - t0) / ms);
+    el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
+    if (p < 1) requestAnimationFrame(step);
+  };
+  el.textContent = '0';
+  requestAnimationFrame(step);
+  // animation frames pause while the page is hidden: never leave the number stuck part-way
+  setTimeout(() => { el.textContent = Math.round(target); }, ms + 100);
 }
 
 // Feature bars: healthy average at 20%, Parkinson's average at 80%. Works for features

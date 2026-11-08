@@ -835,3 +835,98 @@ body.mode-tapping .spiral-only { display: none !important; }
   .topbar-left { flex-basis: 100%; }
   .topbar-right { margin-left: auto; }
 }
+
+/* ---------- polish pass: calmer bars, band icons, tapping verdict, stepper ---------- */
+
+body { font-variant-numeric: tabular-nums; }
+
+/* bars: neutral track, soft healthy zone, coloured marker that slides in */
+.gauge-track { background: #e6eaf3; }
+.gauge-track::before {            /* healthy side, up to where a marker turns amber */
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 40%;
+  background: rgba(46, 125, 82, 0.22);
+  border-radius: 6px 0 0 6px;
+}
+.gauge-tick { background: #8c95b0; opacity: 1; }
+.gauge-pin {
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translate(-50%, -50%);
+  border: 3px solid #fff;
+  background: var(--text-muted);
+  box-shadow: 0 1px 4px rgba(28, 35, 51, 0.35);
+  animation: pin-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.pct-low .gauge-pin { background: var(--low); }
+.pct-moderate .gauge-pin { background: var(--moderate); }
+.pct-high .gauge-pin { background: var(--high); }
+.pct-unscored .gauge-track::before { display: none; }
+@keyframes pin-in { from { left: 50%; opacity: 0; } }
+
+/* bands carry a shape too, not just a colour */
+#risk-band-label::before, .verdict-band::before, .tap-score-band::before { margin-right: 6px; }
+#risk-band-label.band-low::before, .verdict-band.band-low::before, .tap-score-band.band-low::before { content: '\2713'; }
+#risk-band-label.band-moderate::before, .verdict-band.band-moderate::before, .tap-score-band.band-moderate::before { content: '\25B2'; }
+#risk-band-label.band-high::before, .verdict-band.band-high::before, .tap-score-band.band-high::before { content: '\25C6'; }
+#risk-band-label.band-moderate, .verdict-band.band-moderate { outline: 2px dashed var(--moderate); outline-offset: -2px; }
+#risk-band-label.band-high, .verdict-band.band-high { outline: 3px solid var(--high); outline-offset: -3px; }
+
+/* tapping verdict banner */
+.tap-score.verdict {
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 14px 24px;
+  border-left: 6px solid var(--border);
+  padding: 16px 20px;
+  scroll-margin-top: 12px;
+}
+.tap-score.verdict.v-low { border-left-color: var(--low); }
+.tap-score.verdict.v-moderate { border-left-color: var(--moderate); }
+.tap-score.verdict.v-high { border-left-color: var(--high); }
+.verdict-main { flex: 1 1 320px; min-width: 0; }
+.verdict-kicker { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.verdict-band { display: inline-block; margin: 6px 0; padding: 8px 16px; border-radius: 999px; font-weight: 800; font-size: 21px; line-height: 1.2; }
+.verdict-band.band-low { background: #e5f3eb; }
+.verdict-band.band-moderate { background: #fbf0dc; }
+.verdict-band.band-high { background: #f9e3e0; }
+.verdict-why { font-size: 14px; color: var(--text); }
+.verdict-stats { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.verdict-stat { text-align: center; }
+.verdict-big { line-height: 1; }
+.verdict-num { font-size: 40px; font-weight: 800; }
+.verdict-suffix { font-size: 15px; color: var(--text-muted); margin-left: 2px; }
+.verdict-mid { font-size: 20px; font-weight: 700; line-height: 1.2; }
+.verdict-cap { margin-top: 4px; font-size: 11px; color: var(--text-muted); max-width: 130px; }
+.verdict-retest { min-height: 48px; font-size: 15px; }
+.verdict-scale { flex-basis: 100%; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 8px; }
+
+/* hand cards: severity in the header, bars only, raw signal in a drawer */
+.tap-card-head { flex-wrap: wrap; gap: 6px 10px; }
+.sev-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 14px; font-weight: 700; }
+.sev-pill.sev-normal { background: #e5f3eb; color: var(--low); }
+.sev-pill.sev-mild { background: #fbf0dc; color: var(--moderate); outline: 2px dashed var(--moderate); outline-offset: -2px; }
+.sev-pill-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
+.tap-compare { margin-bottom: 6px; }
+.tap-more { margin-top: 6px; border-top: 1px solid var(--border); }
+.tap-more summary { min-height: 44px; display: flex; align-items: center; font-size: 14px; }
+.tap-more[open] summary { margin-bottom: 8px; }
+
+/* one footer for sources and the disclaimer */
+.tap-footer { font-size: 12px; line-height: 1.5; color: var(--text-muted); background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; }
+
+/* recording: the camera frame glows red */
+.tap-preview-wrap { transition: box-shadow 0.2s; }
+.tap-preview-wrap.is-recording { box-shadow: 0 0 0 4px var(--high), 0 0 28px rgba(192, 57, 43, 0.45); }
+
+/* right -> left stepper */
+.tap-buttons .btn.done { background: #e5f3eb; border-color: #cfe7d8; color: var(--low); }
+.tap-buttons .btn.next:not(:disabled) { animation: next-pulse 1.6s ease-in-out infinite; }
+@keyframes next-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(61, 90, 153, 0.45); } 50% { box-shadow: 0 0 0 8px rgba(61, 90, 153, 0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .gauge-pin, .tap-buttons .btn.next { animation: none; }
+}

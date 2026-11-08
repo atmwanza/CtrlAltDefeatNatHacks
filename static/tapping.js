@@ -33,6 +33,8 @@
   const asymEl = $('tap-asymmetry');
   const scoreEl = $('tap-score');
   const clearBtn = $('tap-clear-btn');
+  const footerEl = $('tap-footer');
+  const previewWrap = preview.closest('.tap-preview-wrap');
 
   let active = false;          // tapping view showing
   let cameraReady = false;
@@ -149,6 +151,14 @@
     const disabled = running || !cameraReady;
     rightBtn.disabled = disabled;
     leftBtn.disabled = disabled;
+    // two-step flow: a finished hand turns green, the next one pulses
+    const done = h => !!(results[h] && results[h].valid);
+    rightBtn.textContent = done('right') ? '✓ Right hand done · redo' : '① Start right hand';
+    leftBtn.textContent = done('left') ? '✓ Left hand done · redo' : '② Start left hand';
+    rightBtn.classList.toggle('done', done('right'));
+    leftBtn.classList.toggle('done', done('left'));
+    rightBtn.classList.toggle('next', !running && !done('right') && done('left'));
+    leftBtn.classList.toggle('next', !running && done('right') && !done('left'));
     spiralTab.disabled = running;
     if (clearBtn) {   // null if a cached old page is paired with this script: never break tapping over it
       clearBtn.disabled = running;
@@ -175,7 +185,7 @@
     sessions.right = sessions.left = null;
     resultsEl.innerHTML = '';
     scoreEl.innerHTML = '';
-    scoreEl.classList.add('hidden');
+    scoreEl.className = 'tap-score hidden';
     asymEl.classList.add('hidden');
     setMessage('Cleared. Start with the right hand.');
     updateButtons();
@@ -214,6 +224,7 @@
     }
 
     setMessage('Recording: keep tapping, as fast and as big as you can.', 'live');
+    if (previewWrap) previewWrap.classList.add('is-recording');
     progress.classList.remove('hidden');
     const t0 = performance.now();
     // timer, not requestAnimationFrame: rAF pauses in background tabs and would stall the flow
@@ -263,6 +274,7 @@
 
   function finish(text, kind) {
     running = false;
+    if (previewWrap) previewWrap.classList.remove('is-recording');
     overlay.classList.add('hidden');
     overlay.classList.remove('rec');
     progress.classList.add('hidden');
@@ -319,23 +331,28 @@
     ].filter(Boolean).join(' · ');
     const warnings = (r.warnings || []).map(w => `<li>${escapeHtml(w)}</li>`).join('');
     const compare = r.valid && Array.isArray(r.comparison) ? r.comparison.map(compareRow).join('') : '';
+    const state = r.valid
+      ? (r.severity ? severityPill(r.severity) : '')
+      : '<span class="tap-card-state">Not reliable</span>';
     card.innerHTML = `
       <div class="tap-card-head">
         <h3>${capitalise(hand)} hand</h3>
-        <span class="tap-card-state">${r.valid ? 'Measured' : 'Not reliable'}</span>
+        ${state}
       </div>
       ${warnings ? `<ul class="tap-warnings">${warnings}</ul>` : ''}
-      ${r.valid && r.severity ? severityBadge(r.severity) : ''}
-      ${compare ? `<div class="tap-section-title">Compared with healthy and Parkinson's averages</div>
-        <div class="tap-compare">${compare}</div>` : ''}
-      ${r.series ? `<div class="tap-charts">
-        <figure><canvas class="tap-trace"></canvas><figcaption>Finger opening over 10 s · dots = detected taps</figcaption></figure>
-        <figure><canvas class="tap-bars"></canvas><figcaption>Size of each tap · line = trend</figcaption></figure>
-      </div>` : ''}
-      ${metrics ? `<details class="tap-more"><summary>More measurements</summary>
-        <div class="tap-metrics">${metrics}</div></details>` : ''}
-      <div class="tap-quality">${escapeHtml(quality)}</div>`;
-    requestAnimationFrame(() => {
+      ${compare ? `<div class="tap-compare">${compare}</div>` : ''}
+      <details class="tap-more"><summary>View raw signal</summary>
+        ${r.series ? `<div class="tap-charts">
+          <figure><canvas class="tap-trace"></canvas><figcaption>Finger opening over 10 s · dots = detected taps</figcaption></figure>
+          <figure><canvas class="tap-bars"></canvas><figcaption>Size of each tap · line = trend</figcaption></figure>
+        </div>` : ''}
+        ${metrics ? `<div class="tap-metrics">${metrics}</div>` : ''}
+        <div class="tap-quality">${escapeHtml(quality)}</div>
+      </details>`;
+    // the charts live in a closed drawer (no size until it opens), so draw them on open
+    const drawer = card.querySelector('details');
+    drawer.addEventListener('toggle', () => {
+      if (!drawer.open) return;
       drawTrace(card.querySelector('.tap-trace'), r.series);
       drawBars(card.querySelector('.tap-bars'), r.amplitudes || []);
     });
@@ -344,6 +361,13 @@
 
   // MDS-UPDRS 3.4 severity band (Islam et al. 2023): how a neurologist would likely rate
   // this hand's tapping, from its speed and opening angle over the first 10 taps.
+  function severityPill(s) {
+    const mild = s.band === '2+';
+    return `<span class="sev-pill ${mild ? 'sev-mild' : 'sev-normal'}"
+      title="Severity estimate, MDS-UPDRS 3.4 (Islam et al. 2023)"><span class="sev-pill-label">Severity</span>
+      ${mild ? '▲' : '✓'} ${escapeHtml(s.label)}</span>`;
+  }
+
   function severityBadge(s) {
     const mild = s.band === '2+';
     const v = s.validation || {};
@@ -369,6 +393,9 @@
     return `${v}`;
   }
 
+  const SHORT_LABELS = { count: 'Taps in 10 s', mean: 'Opening size', std: 'Size variability',
+                         diff10: 'Size drop, tap 1→10' };
+
   function compareRow(c) {
     const valueOk = c.value != null && Number.isFinite(Number(c.value));
     const pin = valueOk ? gaugePosition({ value: c.value, ctrl_mean: c.healthy_mean, pd_mean: c.pd_mean }) : null;
@@ -377,10 +404,10 @@
     const band = c.scored ? pctBand(pct) : 'pct-unscored';
     const tag = c.scored ? '' : '<span class="feature-tag">not scored</span>';
     return `
-      <div class="tap-compare-row ${band}">
+      <div class="tap-compare-row ${band}" title="${escapeHtml(c.help)}">
         <div class="tap-compare-head">
-          <span class="tap-compare-label">${escapeHtml(c.label)}${tag}</span>
-          <span class="feature-value">${escapeHtml(fmtCompare(c, c.value))}</span>
+          <span class="tap-compare-label">${escapeHtml(SHORT_LABELS[c.key] || c.label)}${tag}</span>
+          <span class="feature-value">${valueOk ? escapeHtml(fmtCompare(c, c.value)) : 'not measured'}</span>
         </div>
         <div class="gauge-track">
           <div class="gauge-tick" style="left:${GAUGE_HEALTHY}%"></div>
@@ -391,7 +418,6 @@
           <span style="left:${GAUGE_HEALTHY}%">Healthy ${escapeHtml(fmtCompare(c, c.healthy_mean))}</span>
           <span style="left:${GAUGE_PD}%">PD ${escapeHtml(fmtCompare(c, c.pd_mean))}</span>
         </div>
-        <div class="tap-compare-help">${escapeHtml(c.help)}${valueOk ? '' : ' (not measured)'}</div>
       </div>`;
   }
 
@@ -435,29 +461,59 @@
     const reason = top
       ? `The ${s.worse_hand} hand counts, mainly because of ${REASONS[top.key]}.`
       : `The ${s.worse_hand} hand counts; no single measure stood out.`;
+    const match = handMatch();
+    const vcls = { 'band-low': 'v-low', 'band-moderate': 'v-moderate', 'band-high': 'v-high' }[band.cls] || '';
+    scoreEl.className = `tap-score verdict ${vcls}`;
     scoreEl.innerHTML = `
-      <div class="tap-score-side">
-        <div class="risk-index-label">Tapping result</div>
-        <div class="tap-score-band ${band.cls}">${escapeHtml(band.label)}</div>
-        <div class="risk-number-wrap">
-          <span class="risk-number-caption">Similarity to Parkinson's group</span>
-          <span class="tap-score-number ${band.cls}">${s.score}</span><span class="risk-number-suffix">/100</span>
-        </div>
+      <div class="verdict-main">
+        <div class="verdict-kicker">Tapping result</div>
+        <div class="verdict-band ${band.cls}">${escapeHtml(band.label)}</div>
+        <div class="verdict-why">${escapeHtml(reason)}</div>
       </div>
-      <div class="tap-score-text">
-        <p><b>Right hand ${hs.right.score}</b> · <b>Left hand ${hs.left.score}</b>. Each hand is scored on speed,
-          opening size, variability and shrinkage; the result is the worse hand. ${escapeHtml(reason)}</p>
-        <p>Compared with ${s.reference.n_healthy} healthy people and ${s.reference.n_parkinsons} people with Parkinson's
-          (Kasemsap et al., PLOS ONE 2025). Checked on people it wasn't trained on: AUC ${v.auc.toFixed(2)};
-          it caught ${Math.round(v.sensitivity * 100)}% of Parkinson's and cleared ${Math.round(v.specificity * 100)}% of healthy people.</p>
-        <p class="tap-score-muted">Taps differ between hands by ${td.value} (healthy average ${td.healthy_mean.toFixed(1)},
-          Parkinson's ${td.pd_mean.toFixed(1)}), shown for context. Under ${s.bands.typical_below} is typical,
-          ${s.bands.elevated_from} or more is elevated. A screening estimate, not a diagnosis.</p>
-      </div>`;
+      <div class="verdict-stats">
+        <div class="verdict-stat">
+          <div class="verdict-big"><span class="verdict-num ${band.cls}">${s.score}</span><span class="verdict-suffix">/100</span></div>
+          <div class="verdict-cap">Similarity to Parkinson's group</div>
+        </div>
+        <div class="verdict-stat">
+          <div class="verdict-mid">R ${hs.right.score} · L ${hs.left.score}</div>
+          <div class="verdict-cap">Each hand (worse counts)</div>
+        </div>
+        ${match ? `<div class="verdict-stat">
+          <div class="verdict-mid">${match.speed}% · ${match.size}%</div>
+          <div class="verdict-cap">Left–right match (speed · size)</div>
+        </div>` : ''}
+        <button class="btn verdict-retest" type="button">↻ Retest</button>
+      </div>
+      <div class="verdict-scale">Under ${s.bands.typical_below} typical · ${s.bands.typical_below}–${s.bands.elevated_from - 1} borderline ·
+        ${s.bands.elevated_from}+ elevated · a screening estimate, not a diagnosis</div>`;
+    scoreEl.querySelector('.verdict-retest').addEventListener('click', clearResults);
     scoreEl.classList.remove('hidden');
+    countUp(scoreEl.querySelector('.verdict-num'), s.score);
+    scoreEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    // sources and validation, once, in the footer
+    const sev = (R.severity || L.severity || {}).validation;
+    if (footerEl) {
+      footerEl.textContent = `ⓘ Screening estimate, not a diagnosis. Score: compared with ${s.reference.n_healthy} healthy people `
+        + `and ${s.reference.n_parkinsons} with Parkinson's (Kasemsap et al., PLOS ONE 2025); on people it wasn't trained on, `
+        + `AUC ${v.auc.toFixed(2)}, caught ${Math.round(v.sensitivity * 100)}% of Parkinson's, cleared ${Math.round(v.specificity * 100)}% `
+        + `of healthy people. Severity: ${sev ? `${sev.n_videos} neurologist-rated home videos` : 'neurologist-rated home videos'} `
+        + `(Islam et al., npj Digital Medicine 2023)${sev ? `, AUC ${sev.auc.toFixed(2)}` : ''}. `
+        + `Hands differ by ${td.value} taps (healthy average ${td.healthy_mean.toFixed(1)}).`;
+    }
+  }
+
+  // speed and size match between the hands, 100% = identical
+  function handMatch() {
+    const R = results.right, L = results.left;
+    const ok = r => r && r.valid && Number.isFinite(r.rate_hz) && Number.isFinite(r.amp_mean) && r.amp_mean > 0;
+    if (!(ok(R) && ok(L))) return null;
+    const ratio = (a, b) => Math.round(Math.min(a, b) / Math.max(a, b) * 100);
+    return { speed: ratio(R.rate_hz, L.rate_hz), size: ratio(R.amp_mean, L.amp_mean) };
   }
 
   function renderAsymmetry() {
+    if (SHOW_COMBINED_SCORE) { asymEl.classList.add('hidden'); return; }   // in the verdict banner instead
     const R = results.right, L = results.left;
     const ok = r => r && r.valid && Number.isFinite(r.rate_hz) && Number.isFinite(r.amp_mean);
     if (!(ok(R) && ok(L))) { asymEl.classList.add('hidden'); return; }
@@ -533,5 +589,5 @@
   updateButtons();
 
   // For testing from the browser console / DevTools: render a result without a camera.
-  window.drawdxTapping = { results, sessions, renderResults, updateScore, showTapping, showSpiral, clearResults };
+  window.drawdxTapping = { results, sessions, renderResults, updateScore, updateButtons, showTapping, showSpiral, clearResults };
 })();
