@@ -808,3 +808,16 @@ body.mode-tapping .spiral-only { display: none !important; }
   .tap-score { flex-direction: column; align-items: stretch; }
   .tap-score-side { flex-basis: auto; border-right: none; border-bottom: 1px solid var(--border); padding: 0 0 12px; }
 }
+/* ---------- top bar: never overlap, even with the LIVE badge showing ---------- */
+.topbar-left { overflow: hidden; }
+.brand, .mode-switch, .device-select { flex-shrink: 0; }
+.mock-badge { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.telemetry { flex: 1 1 0; }   /* gives up its space first, before the badge shrinks */
+
+/* All iPad sizes (up to the 12.9" in landscape) are too narrow for one row now that the
+   bar holds the test tabs and the LIVE badge: always two fixed rows, buttons on the second. */
+@media (max-width: 1400px) {
+  .topbar { flex-wrap: wrap; }
+  .topbar-left { flex-basis: 100%; }
+  .topbar-right { margin-left: auto; }
+}
