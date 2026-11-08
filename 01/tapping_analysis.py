@@ -14,7 +14,8 @@ Pipeline:
   5. Per-hand features: tap rate, opening size, its variability, opening speed, rhythm
      variability, decrement (size change across taps), last/first ratio, hesitations.
 
-Nothing here is compared with a Parkinson's reference: there isn't one for this setup yet.
+Scoring: tapping_reference.py (Kasemsap et al. 2025, Parkinson's vs healthy) and
+tapping_severity.py (Islam et al. 2023, MDS-UPDRS 3.4 severity band).
 """
 import csv
 import io
@@ -61,8 +62,10 @@ def load_clip(zip_bytes):
 
 def extract_aperture(frames, t_ms):
     """Run the hand landmarker over the clip. Returns d(t) = thumb-index / palm length,
-    the raw 3-D thumb-index distance in pixels (for the Kasemsap features; both NaN where
+    the raw 3-D thumb-index distance in pixels (for the Kasemsap features), the wrist angle
+    between thumb tip and index tip in degrees (for the Islam severity band; all NaN where
     no hand), and the most common handedness label."""
+    from tapping_severity import wrist_angle
     import mediapipe as mp
     from mediapipe.tasks import python as mpt
     from mediapipe.tasks.python import vision
@@ -77,6 +80,7 @@ def extract_aperture(frames, t_ms):
     )
     d = np.full(len(frames), np.nan)
     dist = np.full(len(frames), np.nan)
+    theta = np.full(len(frames), np.nan)
     labels = {}
     last_ts = -1
     with vision.HandLandmarker.create_from_options(options) as landmarker:
@@ -98,11 +102,12 @@ def extract_aperture(frames, t_ms):
             if palm > 1:
                 d[i] = np.linalg.norm(xy(THUMB_TIP) - xy(INDEX_TIP)) / palm
             dist[i] = np.linalg.norm(xyz(THUMB_TIP) - xyz(INDEX_TIP))   # Kasemsap: 3-D tip distance
+            theta[i] = wrist_angle(xy(WRIST), xy(THUMB_TIP), xy(INDEX_TIP))   # Islam: angle in pixels
             if res.handedness:
                 lab = res.handedness[0][0].category_name
                 labels[lab] = labels.get(lab, 0) + 1
     detected_hand = max(labels, key=labels.get) if labels else None
-    return d, dist, detected_hand
+    return d, dist, theta, detected_hand
 
 
 def fill_short_gaps(t_ms, d, max_gap_ms=MAX_GAP_MS):
@@ -258,12 +263,18 @@ def analyze_clip(zip_bytes, meta=None):
     meta = meta or {}
     started = time.perf_counter()
     frames, t_ms = load_clip(zip_bytes)
-    d, dist, detected_hand = extract_aperture(frames, t_ms)
+    d, dist, theta, detected_hand = extract_aperture(frames, t_ms)
     result = tap_features(t_ms, d, meta.get('fps_measured'))
     result['kasemsap'] = kasemsap_features(t_ms, dist, meta.get('fps_measured'))
     if meta.get('hand') in ('right', 'left') and result['kasemsap']:
         from tapping_reference import hand_comparison
         result['comparison'] = hand_comparison(meta['hand'], result['kasemsap'])
+    try:                                    # MDS-UPDRS 3.4 severity band (Islam et al. 2023)
+        from tapping_severity import estimate
+        result['severity'] = estimate(t_ms, theta) if result.get('valid') else None
+    except Exception as e:                  # never lose the main result over the extra band
+        print(f'[tapping] severity failed: {e!r}')
+        result['severity'] = None
     result.update({
         'hand': meta.get('hand'),
         'detected_hand': detected_hand,
@@ -271,7 +282,7 @@ def analyze_clip(zip_bytes, meta=None):
         'drops': meta.get('drops'),
         'source': meta.get('camera') or meta.get('source'),
         'analysis_s': round(time.perf_counter() - started, 2),
-        'status': 'prototype_not_scored',
+        'status': 'scored',
     })
     if meta.get('drops'):
         result.setdefault('warnings', []).append(f"{meta['drops']} dropped camera frames.")

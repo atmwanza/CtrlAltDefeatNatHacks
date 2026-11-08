@@ -325,6 +325,7 @@
         <span class="tap-card-state">${r.valid ? 'Measured' : 'Not reliable'}</span>
       </div>
       ${warnings ? `<ul class="tap-warnings">${warnings}</ul>` : ''}
+      ${r.valid && r.severity ? severityBadge(r.severity) : ''}
       ${compare ? `<div class="tap-section-title">Compared with healthy and Parkinson's averages</div>
         <div class="tap-compare">${compare}</div>` : ''}
       ${r.series ? `<div class="tap-charts">
@@ -339,6 +340,23 @@
       drawBars(card.querySelector('.tap-bars'), r.amplitudes || []);
     });
     return card;
+  }
+
+  // MDS-UPDRS 3.4 severity band (Islam et al. 2023): how a neurologist would likely rate
+  // this hand's tapping, from its speed and opening angle over the first 10 taps.
+  function severityBadge(s) {
+    const mild = s.band === '2+';
+    const v = s.validation || {};
+    const f = s.features || {};
+    return `
+      <div class="tap-severity ${mild ? 'sev-mild' : 'sev-normal'}">
+        <div class="tap-severity-head">
+          <span class="tap-severity-label">Severity estimate · MDS-UPDRS 3.4</span>
+          <span class="tap-severity-band">${escapeHtml(s.label)}</span>
+        </div>
+        <div class="tap-severity-src">${escapeHtml(capitalise(s.source || ''))}${v.auc ? ` · AUC ${v.auc.toFixed(2)}` : ''}
+          · first ${f.n_taps_used || 10} taps · opening ${Math.round(f.amplitude_median_denoised)}°</div>
+      </div>`;
   }
 
   // One feature against the Kasemsap healthy / Parkinson's averages, using the same bar as

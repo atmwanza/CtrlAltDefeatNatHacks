@@ -682,6 +682,16 @@ body.mode-tapping .spiral-only { display: none !important; }
 .tap-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .tap-card-head h3 { margin: 0; font-size: 18px; }
 .tap-card-state { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.tap-severity { border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; border: 1px solid var(--border); }
+.tap-severity.sev-normal { background: #e5f3eb; border-color: #cfe7d8; }
+.tap-severity.sev-mild { background: #fbf0dc; border-color: #f0dfbb; }
+.tap-severity-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+.tap-severity-label { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.tap-severity-band { font-weight: 700; font-size: 15px; }
+.sev-normal .tap-severity-band { color: var(--low); }
+.sev-mild .tap-severity-band { color: var(--moderate); }
+.tap-severity-src { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
 .tap-card.invalid .tap-card-state { color: var(--moderate); }
 
 .tap-warnings {
