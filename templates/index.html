@@ -33,8 +33,8 @@
     <span id="telemetry-strip" class="telemetry">Waiting for S Pen&hellip;</span>
   </div>
   <div class="topbar-right">
-    <button id="demo-healthy-btn" class="btn btn-ghost">▶ Healthy</button>
-    <button id="demo-pd-btn" class="btn btn-ghost">▶ PD</button>
+    <button id="demo-healthy-btn" class="btn btn-ghost">▶ Demo: Healthy</button>
+    <button id="demo-pd-btn" class="btn btn-ghost">▶ Demo: PD</button>
     <button id="clear-btn" class="btn btn-ghost">Clear</button>
     <button id="analyze-btn" class="btn btn-primary" disabled>Analyze Spiral</button>
   </div>
@@ -49,21 +49,22 @@
   <section id="results-panel" class="hidden">
     <div id="risk-score-block">
       <div id="risk-score-side">
-        <div class="risk-index-label">Kinematic Deviation Index</div>
-        <div class="risk-number-wrap">
-          <span id="risk-score-number">—</span>
-          <span class="risk-number-suffix">/100</span>
-        </div>
+        <div class="risk-index-label">Screening result</div>
         <div id="risk-band-label"></div>
-        <div class="risk-index-sub">How closely this drawing matches the Parkinson's group in a clinical dataset of 76 people. A screening estimate, not a diagnosis.</div>
+        <div class="risk-number-wrap">
+          <span class="risk-number-caption">Similarity to Parkinson's group</span>
+          <span id="risk-score-number">—</span><span class="risk-number-suffix">/100</span>
+        </div>
+        <div class="risk-index-sub">Compared with a clinical dataset of 76 people (15 healthy, 61 with Parkinson's). A screening estimate, not a diagnosis.</div>
       </div>
       <div id="heatmap-side">
         <canvas id="heatmap-canvas"></canvas>
         <div class="heatmap-legend">
-          <span class="legend-title">Pen speed:</span>
-          <span><i class="dot low"></i> Slower</span>
-          <span><i class="dot moderate"></i> Medium</span>
-          <span><i class="dot high"></i> Faster</span>
+          <span class="legend-title">Line steadiness:</span>
+          <span><i class="dot low"></i> Steady</span>
+          <span><i class="dot moderate"></i> Some wobble</span>
+          <span><i class="dot high"></i> Strong wobble</span>
+          <span><i class="dot ghost"></i> Template</span>
         </div>
       </div>
     </div>

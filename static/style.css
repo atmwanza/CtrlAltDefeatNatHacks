@@ -217,7 +217,7 @@ main {
 }
 
 #risk-score-side {
-  flex: 0 0 160px;
+  flex: 0 0 210px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -242,22 +242,39 @@ main {
   line-height: 1.4;
 }
 
-.risk-number-wrap { line-height: 1; }
+/* The plain-language band leads; the 0-100 number is secondary (avoids false precision) */
+#risk-band-label {
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+#risk-band-label.band-low { background: #e5f3eb; }
+#risk-band-label.band-moderate { background: #fbf0dc; }
+#risk-band-label.band-high { background: #f9e3e0; }
+
+.risk-number-wrap {
+  margin-top: 12px;
+  line-height: 1.1;
+}
+
+.risk-number-caption {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
 
 #risk-score-number {
-  font-size: 56px;
+  font-size: 28px;
   font-weight: 800;
 }
 
 .risk-number-suffix {
-  font-size: 16px;
-  color: var(--text-muted);
-}
-
-#risk-band-label {
-  margin-top: 8px;
-  font-weight: 700;
   font-size: 14px;
+  color: var(--text-muted);
 }
 
 #heatmap-side {
@@ -294,6 +311,9 @@ main {
 .dot.low { background: var(--low); }
 .dot.moderate { background: var(--moderate); }
 .dot.high { background: var(--high); }
+.dot.ghost { background: #c3cad9; }
+
+.heatmap-legend { flex-wrap: wrap; row-gap: 4px; }
 
 /* feature cards */
 
@@ -344,18 +364,47 @@ main {
   line-height: 1.5;
 }
 
+.feature-sub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
 .feature-value {
   font-size: 20px;
   font-weight: 700;
   margin-bottom: 10px;
 }
 
+/* Healthy average sits at 20%, Parkinson's average at 80%, so values beyond either
+   average still move the pin instead of pinning it to the edge */
 .gauge-track {
   position: relative;
   height: 8px;
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--low), var(--moderate), var(--high));
+  background: linear-gradient(90deg, var(--low) 0%, var(--low) 20%, var(--moderate) 50%, var(--high) 80%, var(--high) 100%);
   margin-bottom: 6px;
+}
+
+.gauge-tick {
+  position: absolute;
+  top: -4px;
+  width: 2px;
+  height: 16px;
+  background: var(--text);
+  opacity: 0.45;
+  transform: translateX(-50%);
+}
+
+.feature-refs {
+  position: relative;
+  height: 15px;
+}
+
+.feature-refs span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
 }
 
 .gauge-pin {
@@ -370,8 +419,6 @@ main {
 }
 
 .feature-refs {
-  display: flex;
-  justify-content: space-between;
   font-size: 11px;
   color: var(--text-muted);
 }

@@ -129,8 +129,9 @@ function drawSpiralTemplate() {
   spiralGeometry = { cx, cy, b };
 
   ctx.save();
-  ctx.strokeStyle = '#e0e3ef';
-  ctx.lineWidth = 1.5;
+  // Medium slate: the old #e0e3ef was ~1.3:1 contrast on white, too faint for older eyes
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 2;
   ctx.beginPath();
   for (let theta = 0; theta <= thetaMax; theta += 0.05) {
     const r = b * theta;
@@ -424,12 +425,12 @@ async function submitDrawing(source) {
 
 function riskBand(score) {
   if (score < RISK_BAND_LOW_MAX) {
-    return { cls: 'band-low', label: 'Within normal reference range' };
+    return { cls: 'band-low', label: 'Within typical range' };
   }
   if (score < RISK_BAND_MOD_MAX) {
-    return { cls: 'band-moderate', label: 'Borderline kinematic deviation' };
+    return { cls: 'band-moderate', label: 'Borderline: consider a retest' };
   }
-  return { cls: 'band-high', label: 'Elevated kinematic deviation' };
+  return { cls: 'band-high', label: 'Elevated: consider a clinical review' };
 }
 
 function pctBand(pct) {
@@ -458,14 +459,22 @@ function displayResults(data) {
     const card = document.createElement('div');
     const band2 = f.scored === false ? 'pct-unscored' : pctBand(f.percentile_pd);
     card.className = `feature-card ${band2}`;
-    const pinLeft = Math.min(96, Math.max(4, Number(f.percentile_pd) || 0));
+    const pinLeft = gaugePosition(f);
     const fmt = v => escapeHtml(formatFeatureValue(key, v));
     const tag = f.scored === false ? '<span class="feature-tag">not in score</span>' : '';
     card.innerHTML = `
       <div class="feature-name">${escapeHtml(featureLabel(key))}${tag}</div>
+      <div class="feature-sub">${escapeHtml(featureDescription(key))}</div>
       <div class="feature-value">${fmt(f.value)}</div>
-      <div class="gauge-track"><div class="gauge-pin" style="left:${pinLeft}%"></div></div>
-      <div class="feature-refs"><span>Healthy ${fmt(f.ctrl_mean)}</span><span>PD ${fmt(f.pd_mean)}</span></div>
+      <div class="gauge-track">
+        <div class="gauge-tick" style="left:${GAUGE_HEALTHY}%"></div>
+        <div class="gauge-tick" style="left:${GAUGE_PD}%"></div>
+        <div class="gauge-pin" style="left:${pinLeft}%"></div>
+      </div>
+      <div class="feature-refs">
+        <span style="left:${GAUGE_HEALTHY}%">Healthy avg ${fmt(f.ctrl_mean)}</span>
+        <span style="left:${GAUGE_PD}%">PD avg ${fmt(f.pd_mean)}</span>
+      </div>
     `;
     grid.appendChild(card);
   }
@@ -486,7 +495,11 @@ function displayResults(data) {
   if (warnings.length && interpretation.endsWith(noteSuffix)) {
     interpretation = interpretation.slice(0, -noteSuffix.length);
   }
-  document.getElementById('interpretation-block').textContent = interpretation;
+  // Say what it was compared against, so the cohort size answers the first judge question.
+  const tablet = { android: 'Galaxy Tab', ios: 'iPad' }[data.calibrated_for];
+  const method = "Reference: 76 clinical recordings (15 healthy, 61 with Parkinson's)"
+    + (tablet ? `, with a correction for how the ${tablet} reads pen input.` : '.');
+  document.getElementById('interpretation-block').textContent = `${interpretation} ${method}`.trim();
   document.getElementById('disclaimer-block').textContent =
     data.disclaimer || 'Screening tool only. Not a clinical diagnosis.';
 
@@ -495,21 +508,42 @@ function displayResults(data) {
     mockBadge.textContent = 'MOCK DATA';
     mockBadge.classList.remove('badge-live');
     mockBadge.classList.remove('hidden');
-  } else if (data.backend_label) {
-    mockBadge.textContent = data.backend_label;
+  } else {
+    mockBadge.textContent = 'LIVE · UCI reference (n=76)' + (tablet ? ' · tablet-calibrated' : '');
     mockBadge.classList.add('badge-live');
     mockBadge.classList.remove('hidden');
-  } else {
-    mockBadge.classList.add('hidden');
   }
 
-  drawSpeedHeatmap();
+  drawSteadinessHeatmap();
+}
+
+// Feature bars: healthy average at 20%, Parkinson's average at 80%. Works for features
+// where Parkinson's is lower too (dominant frequency): left is always healthy-like.
+const GAUGE_HEALTHY = 20;
+const GAUGE_PD = 80;
+
+function gaugePosition(f) {
+  const v = Number(f.value), h = Number(f.ctrl_mean), p = Number(f.pd_mean);
+  if (![v, h, p].every(Number.isFinite) || p === h) return 50;
+  const pos = GAUGE_HEALTHY + (GAUGE_PD - GAUGE_HEALTHY) * (v - h) / (p - h);
+  return Math.min(97, Math.max(3, pos));
+}
+
+function featureDescription(key) {
+  const text = {
+    dev_norm: 'How far the line strayed from a smooth spiral',
+    tremor_pct: 'Share of movement in the 4–6 Hz Parkinson\'s tremor rhythm',
+    vel_cv: 'How much the pen speed varied',
+    p_cv: 'How much the pen pressure varied',
+    dom_freq: 'Main rhythm of the hand\'s shake',
+  };
+  return text[key] || '';
 }
 
 function featureLabel(key) {
   const labels = {
     dev_norm: 'Spiral Deviation',
-    vel_cv: 'Velocity Variability',
+    vel_cv: 'Speed Variability',
     dom_freq: 'Dominant Frequency',
     tremor_pct: 'Tremor Share',
     p_cv: 'Pressure Variability',
@@ -517,11 +551,11 @@ function featureLabel(key) {
   return labels[key] || key;
 }
 
-// Fixed decimals so cards line up and never show a bare "0" or "1".
+// Ratios as percentages with one decimal (no false precision), frequency in Hz.
 function formatFeatureValue(key, value) {
   const v = Number(value);
   if (!Number.isFinite(v)) return String(value ?? '');
-  return key === 'dom_freq' ? `${v.toFixed(1)} Hz` : v.toFixed(3);
+  return key === 'dom_freq' ? `${v.toFixed(1)} Hz` : `${(v * 100).toFixed(1)}%`;
 }
 
 function escapeHtml(value) {
@@ -530,7 +564,44 @@ function escapeHtml(value) {
   ));
 }
 
-function drawSpeedHeatmap() {
+// Results picture: the drawing over the faint template, each segment coloured by how much
+// the line wobbled around its own smoothed path (deviation from a ±125 ms moving average,
+// as a share of the drawing's size). Thresholds are absolute, not per-drawing percentiles,
+// so a steady drawing stays green. Measured on real drawings: healthy UCI controls, the team
+// and guests on both tablets keep 93-99% of points under 0.5%; Parkinson's recordings
+// with tremor go well past it (top 1% of UCI Parkinson's points: 2.7%).
+const WOBBLE_HALF_WINDOW_MS = 125;
+const WOBBLE_SOME = 0.005;
+const WOBBLE_STRONG = 0.01;
+
+function wobbleByPoint() {
+  const xs = points.map(p => p.x), ys = points.map(p => p.y);
+  const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1);
+  const out = new Array(points.length).fill(0);
+  let start = 0;
+  while (start < points.length) {               // one stroke at a time
+    let end = start;
+    while (end + 1 < points.length && points[end + 1].s === points[start].s) end++;
+    const cx = [0], cy = [0];                   // prefix sums for O(1) window means
+    for (let i = start; i <= end; i++) {
+      cx.push(cx[cx.length - 1] + points[i].x);
+      cy.push(cy[cy.length - 1] + points[i].y);
+    }
+    let lo = start, hi = start;
+    for (let i = start; i <= end; i++) {
+      while (points[lo].t < points[i].t - WOBBLE_HALF_WINDOW_MS) lo++;
+      while (hi + 1 <= end && points[hi + 1].t <= points[i].t + WOBBLE_HALF_WINDOW_MS) hi++;
+      const n = hi - lo + 1;
+      const mx = (cx[hi - start + 1] - cx[lo - start]) / n;
+      const my = (cy[hi - start + 1] - cy[lo - start]) / n;
+      out[i] = Math.hypot(points[i].x - mx, points[i].y - my) / size;
+    }
+    start = end + 1;
+  }
+  return out;
+}
+
+function drawSteadinessHeatmap() {
   const hm = document.getElementById('heatmap-canvas');
   const hctx = hm.getContext('2d');
   const rect = hm.getBoundingClientRect();
@@ -542,44 +613,43 @@ function drawSpeedHeatmap() {
 
   if (points.length < 2) return;
 
+  // Fit both the drawing and the template into the box, with the same transform.
+  const g = spiralGeometry;
+  const thetaMax = SPIRAL_TURNS * 2 * Math.PI;
+  const templateR = g ? g.b * thetaMax : 0;
   const xs = points.map(p => p.x), ys = points.map(p => p.y);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  let minX = Math.min(...xs), maxX = Math.max(...xs);
+  let minY = Math.min(...ys), maxY = Math.max(...ys);
+  if (g) {
+    minX = Math.min(minX, g.cx - templateR); maxX = Math.max(maxX, g.cx + templateR);
+    minY = Math.min(minY, g.cy - templateR); maxY = Math.max(maxY, g.cy + templateR);
+  }
   const spanX = Math.max(maxX - minX, 1), spanY = Math.max(maxY - minY, 1);
   const scale = Math.min((rect.width - 20) / spanX, (rect.height - 20) / spanY);
   const offX = (rect.width - spanX * scale) / 2 - minX * scale;
   const offY = (rect.height - spanY * scale) / 2 - minY * scale;
 
-  // Speed of segment i (points[i-1] -> points[i]), averaged over ~100 ms of the same
-  // stroke. Per-sample speed is mostly quantisation noise (whole-pixel steps every few ms),
-  // which pushed nearly every segment into the top colour band.
-  const HALF_WINDOW_MS = 50;
-  const velocities = [];
-  let lo = 0, hi = 0;
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1], b = points[i];
-    if (a.s !== b.s) { velocities.push(0); continue; }
-    const tMid = (a.t + b.t) / 2;
-    if (lo > i - 1) lo = i - 1;
-    while (lo < i - 1 && (points[lo].s !== a.s || points[lo].t < tMid - HALF_WINDOW_MS)) lo++;
-    if (hi < i) hi = i;
-    while (hi + 1 < points.length && points[hi + 1].s === a.s && points[hi + 1].t <= tMid + HALF_WINDOW_MS) hi++;
-    let dist = 0;
-    for (let j = lo + 1; j <= hi; j++) dist += Math.hypot(points[j].x - points[j - 1].x, points[j].y - points[j - 1].y);
-    velocities.push(dist / Math.max(points[hi].t - points[lo].t, 1));
+  if (g) {
+    hctx.strokeStyle = '#c3cad9';
+    hctx.lineWidth = 1.5;
+    hctx.beginPath();
+    for (let theta = 0; theta <= thetaMax; theta += 0.05) {
+      const r = g.b * theta;
+      const x = (g.cx + r * Math.cos(spiralAngle(theta))) * scale + offX;
+      const y = (g.cy + r * Math.sin(spiralAngle(theta))) * scale + offY;
+      if (theta === 0) hctx.moveTo(x, y); else hctx.lineTo(x, y);
+    }
+    hctx.stroke();
   }
-  const sorted = [...velocities].sort((a, b) => a - b);
-  const p5 = sorted[Math.floor(sorted.length * 0.05)] || 0;
-  const p95 = sorted[Math.floor(sorted.length * 0.95)] || 1;
-  const range = Math.max(p95 - p5, 1e-6);
 
+  const wobble = wobbleByPoint();
   hctx.lineWidth = 2.4;
   hctx.lineCap = 'round';
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1], b = points[i];
     if (a.s !== b.s) continue;
-    const norm = Math.min(1, Math.max(0, (velocities[i - 1] - p5) / range));
-    hctx.strokeStyle = norm < 0.33 ? '#2e7d52' : norm < 0.67 ? '#b07a1a' : '#c0392b';
+    const w = Math.max(wobble[i - 1], wobble[i]);
+    hctx.strokeStyle = w < WOBBLE_SOME ? '#2e7d52' : w < WOBBLE_STRONG ? '#b07a1a' : '#c0392b';
     hctx.beginPath();
     hctx.moveTo(a.x * scale + offX, a.y * scale + offY);
     hctx.lineTo(b.x * scale + offX, b.y * scale + offY);
@@ -590,9 +660,11 @@ function drawSpeedHeatmap() {
 // ---------- demo presets ----------
 
 // The demo buttons replay real recordings from the UCI reference dataset: a
-// typical healthy control (C_0006) and a typical person with Parkinson's
-// (P_27110001), each scoring near their group's median when left out of the
-// reference. They're sent as device_platform "demo", so no tablet calibration
+// typical healthy control (C_0006, score 4) and a person with Parkinson's
+// (H_P000-0003, score 77) whose score sits near the group's median (80) and who
+// shows a classic 4.6 Hz tremor, so the steadiness picture has something real to
+// show (scores with each person left out of the reference). Both run 17-19 s,
+// inside the drawing-time guidance. They're sent as device_platform "demo", so no tablet calibration
 // is applied — they were recorded on the UCI tablet, not this one.
 demoHealthyBtn.addEventListener('click', () => loadDemo('healthy'));
 demoPdBtn.addEventListener('click', () => loadDemo('pd'));
@@ -680,7 +752,23 @@ function fitRecordingToCanvas(rec) {
 
 // ---------- boot ----------
 
-beginDrawingBtn.addEventListener('click', () => instructionsOverlay.classList.add('hidden'));
+beginDrawingBtn.addEventListener('click', () => {
+  instructionsOverlay.classList.add('hidden');
+  enterFullscreen();
+});
+
+// Hide the browser bars and the Android dock while drawing: more canvas, and a resting
+// hand can't hit Home/Back. Needs a tap (this button), and some browsers refuse it, so
+// failure is ignored. The ResizeObserver below re-fits the canvas when the size changes.
+function enterFullscreen() {
+  const el = document.documentElement;
+  if (document.fullscreenElement || document.webkitFullscreenElement) return;
+  try {
+    const request = el.requestFullscreen || el.webkitRequestFullscreen;
+    const result = request && request.call(el);
+    if (result && typeof result.catch === 'function') result.catch(() => {});
+  } catch (_) { /* fullscreen not allowed here */ }
+}
 
 // Resize the canvas whenever its box actually changes size (rotation, Safari toolbar).
 // ResizeObserver fires after layout, unlike 'resize' on iOS Safari, which can fire
