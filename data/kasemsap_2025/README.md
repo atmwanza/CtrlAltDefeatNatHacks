@@ -30,10 +30,13 @@ Recording protocol:
 ## How DrawDx uses it
 `tools/build_tapping_reference.py` reads this file and writes `01/tapping_reference.json`:
 - **group averages** for the tablet's comparison bars
-- **a score:** L2 logistic regression on the worse hand's amplitude mean, amplitude SD and tap 1→10 drop
+- **a score for each hand:** L2 logistic regression on that hand's tap count (speed), mean amplitude, amplitude SD and tap 1→10 drop. A person's result is their **worse hand**.
+- **bands from the healthy group's held-out scores:** under 50 is typical (the model's decision point), 75 or more is elevated (92% of held-out healthy people score below 75)
 
-On held-out people (leave-one-person-out) the score reaches AUC 0.818, sensitivity 0.81, specificity 0.72.
+On held-out people (leave-one-person-out, both hands held out), the score reaches **AUC 0.912, sensitivity 0.92, specificity 0.75**.
 
-**Tap counts are shown but never scored,** because they depend on age and recording setup.
+**Why speed is scored.** A first version left tap count out, on the worry that it depends on age and setup. Our team check on the Pi camera (7 healthy people, 13 recordings) showed that version's score followed tapping speed (r = 0.74). Our testers' tap counts matched this study's healthy group (23.9 vs 24.4, worse hand), so speed was added: held-out AUC went from 0.818 to 0.912.
+
+**Fewer than N taps.** In this data, when a hand made fewer than N taps, `diffN` is tap 1 minus 0 (checked on all 9 such hands). DrawDx computes it the same way, so slow tapping still gets a result.
 
 DrawDx's own tapping features are computed the same way as the paper's (see `kasemsap_features()` in `01/tapping_analysis.py`). The result is a screening comparison, not a diagnosis.

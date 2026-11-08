@@ -11,10 +11,10 @@
   const HEALTH_MS = 2000;
   const STATUS_MS = 500;
   const STATUS_TIMEOUT_MS = 90000;
-  // Combined two-hand score: hidden after our team check (Nov 8). Healthy teammates ranged from
-  // 9 to 68, and the same person scored 19 on one try and 68 on the next, depending on how fast
-  // they chose to tap. The per-hand comparison bars stay. Set to true to bring the score back.
-  const SHOW_COMBINED_SCORE = false;
+  // Tapping score. Our team check (Nov 8) showed the first, size-only score followed tapping
+  // speed (same person 61 then 6), so it was hidden; the score now includes speed and is
+  // scored per hand (held-out AUC 0.91). Set to false to hide it again (bars stay).
+  const SHOW_COMBINED_SCORE = true;
 
   const $ = id => document.getElementById(id);
   const panel = $('tapping-panel');
@@ -373,19 +373,19 @@
           <span style="left:${GAUGE_HEALTHY}%">Healthy ${escapeHtml(fmtCompare(c, c.healthy_mean))}</span>
           <span style="left:${GAUGE_PD}%">PD ${escapeHtml(fmtCompare(c, c.pd_mean))}</span>
         </div>
-        <div class="tap-compare-help">${escapeHtml(c.help)}${valueOk ? '' : ' (needs at least 10 taps)'}</div>
+        <div class="tap-compare-help">${escapeHtml(c.help)}${valueOk ? '' : ' (not measured)'}</div>
       </div>`;
   }
 
-  // Two-hand score: worse hand per feature, model validated on people it wasn't trained on.
+  // Tapping score: each hand scored on speed, opening size, variability and shrinkage; the
+  // result is the worse hand. Model checked on people it wasn't trained on.
   async function updateScore() {
     const R = results.right, L = results.left;
     if (!(R && L && R.valid && L.valid)) { scoreEl.classList.add('hidden'); return; }
     if (!SHOW_COMBINED_SCORE) {
       scoreEl.innerHTML = `<div class="tap-score-off">
-        <strong>No single tapping score.</strong> When we tested on our own team, the same healthy person's
-        score changed a lot from one try to the next, depending on how fast they tapped. So each measure
-        below is shown against the published healthy and Parkinson's groups instead.</div>`;
+        <strong>No single tapping score.</strong> Each measure below is shown against the published
+        healthy and Parkinson's groups instead.</div>`;
       scoreEl.classList.remove('hidden');
       return;
     }
@@ -406,11 +406,17 @@
       return;
     }
     if (gen !== generation) return;   // cleared while the score was on its way
-    const band = riskBand(s.score);
-    const names = { mean: 'opening size', std: 'variability', diff10: 'shrinkage' };
-    const used = s.inputs.map(i => `${names[i.key]} (${i.from_hand})`).join(', ');
+    const band = s.band;
     const v = s.validation;
     const td = s.tap_difference;
+    const hs = s.hands;
+    // what pushed the worse hand's score up the most (positive push = toward the Parkinson's group)
+    const REASONS = { count: 'fewer taps (slower)', mean: 'smaller openings', std: 'uneven tap sizes',
+                      diff10: 'taps shrinking from tap 1 to 10' };
+    const top = hs[s.worse_hand].inputs.filter(i => i.push > 0.25).sort((a, b) => b.push - a.push)[0];
+    const reason = top
+      ? `The ${s.worse_hand} hand counts, mainly because of ${REASONS[top.key]}.`
+      : `The ${s.worse_hand} hand counts; no single measure stood out.`;
     scoreEl.innerHTML = `
       <div class="tap-score-side">
         <div class="risk-index-label">Tapping result</div>
@@ -421,13 +427,14 @@
         </div>
       </div>
       <div class="tap-score-text">
-        <p>Uses the weaker hand for each measure: ${escapeHtml(used)}.</p>
+        <p><b>Right hand ${hs.right.score}</b> · <b>Left hand ${hs.left.score}</b>. Each hand is scored on speed,
+          opening size, variability and shrinkage; the result is the worse hand. ${escapeHtml(reason)}</p>
         <p>Compared with ${s.reference.n_healthy} healthy people and ${s.reference.n_parkinsons} people with Parkinson's
           (Kasemsap et al., PLOS ONE 2025). Checked on people it wasn't trained on: AUC ${v.auc.toFixed(2)};
           it caught ${Math.round(v.sensitivity * 100)}% of Parkinson's and cleared ${Math.round(v.specificity * 100)}% of healthy people.</p>
         <p class="tap-score-muted">Taps differ between hands by ${td.value} (healthy average ${td.healthy_mean.toFixed(1)},
-          Parkinson's ${td.pd_mean.toFixed(1)}); shown, not scored, as tap counts depend on age and setup.
-          A screening estimate, not a diagnosis.</p>
+          Parkinson's ${td.pd_mean.toFixed(1)}), shown for context. Under ${s.bands.typical_below} is typical,
+          ${s.bands.elevated_from} or more is elevated. A screening estimate, not a diagnosis.</p>
       </div>`;
     scoreEl.classList.remove('hidden');
   }

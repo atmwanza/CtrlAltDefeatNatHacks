@@ -9,7 +9,7 @@
    "count": "taps in the 10-s window",
    "mean": "mean peak amplitude, % of that hand's maximum thumb-index distance",
    "std": "SD of peak amplitudes, % of maximum",
-   "diffN": "peak amplitude of tap 1 minus tap N, percentage points (positive = shrinking)",
+   "diffN": "peak amplitude of tap 1 minus tap N, percentage points (positive = shrinking); tap 1 minus 0 when the hand made fewer than N taps",
    "tap_diff": "|right - left| tap count"
   }
  },
@@ -107,45 +107,50 @@
   }
  },
  "score": {
-  "model": "L2 logistic regression (lambda=1.0) on standardised features, worse hand per feature",
+  "model": "L2 logistic regression (lambda=1.0) on one hand's standardised features; each hand is a sample labelled with the person's diagnosis; a person's score is the worse hand",
+  "per_hand": true,
   "inputs": [
-   "worse_mean",
-   "worse_std",
-   "worse_diff10"
+   "count",
+   "mean",
+   "std",
+   "diff10"
   ],
-  "input_definitions": {
-   "worse_mean": "min(rp_mean, lp_mean)",
-   "worse_std": "max(rp_std, lp_std)",
-   "worse_diff10": "max(rp_diff10, lp_diff10)"
-  },
   "mean": [
-   74.493395,
-   12.954636,
-   17.265809
+   21.03,
+   78.485976,
+   11.083999,
+   10.800208
   ],
   "sd": [
-   14.015265,
-   8.590863,
-   24.072141
+   7.721341,
+   12.425702,
+   7.667342,
+   23.065854
   ],
-  "intercept": 0.567463,
+  "intercept": 0.687131,
   "coef": [
-   -1.145559,
-   0.706593,
-   0.902084
+   -1.435429,
+   -1.525014,
+   0.594341,
+   0.455093
   ],
   "validation": {
-   "method": "leave-one-person-out",
-   "auc": 0.818,
-   "sensitivity": 0.811,
-   "specificity": 0.723,
+   "method": "leave-one-person-out (both hands held out); score = worse hand",
+   "auc": 0.912,
+   "sensitivity": 0.925,
+   "specificity": 0.745,
    "threshold": 0.5
   },
+  "bands": {
+   "typical_below": 50,
+   "elevated_from": 75,
+   "how": "typical: below the model decision point; elevated: the score 90% of held-out healthy people fall below (rounded up to a multiple of 5). From the reference only.",
+   "healthy_typical_share": 0.745,
+   "healthy_below_elevated_share": 0.915,
+   "pd_elevated_share": 0.717
+  },
   "not_scored": [
-   "rp_count",
-   "lp_count",
    "tap_diff"
-  ],
-  "why_not_scored": "tap counts depend on age and recording setup"
+  ]
  }
 }
