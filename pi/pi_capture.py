@@ -104,6 +104,10 @@ class WebcamSource:
     def __init__(self):
         import cv2
         self.cv2 = cv2
+        self._open()
+
+    def _open(self):
+        cv2 = self.cv2
         backend = cv2.CAP_DSHOW if sys.platform.startswith('win') else cv2.CAP_ANY
         self.cap = cv2.VideoCapture(int(os.environ.get('WEBCAM_INDEX', 0)), backend)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, SIZE[0])
@@ -114,6 +118,12 @@ class WebcamSource:
 
     def grab(self):
         ok, frame = self.cap.read()
+        if not ok:
+            # e.g. a laptop privacy shutter toggled: the camera drops off and comes back
+            self.cap.release()
+            time.sleep(0.5)
+            self._open()
+            ok, frame = self.cap.read()
         ts = time.perf_counter_ns()          # webcam has no sensor clock: time of arrival
         if not ok:
             raise RuntimeError('Webcam frame grab failed.')
