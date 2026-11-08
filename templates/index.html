@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>DrawDx — Spiral Screening</title>
 <!-- ?v= forces tablets to fetch new code on a normal refresh; bump it after editing static/ -->
-<link rel="stylesheet" href="/static/style.css?v=20261108e">
-<link rel="stylesheet" href="/balance/static/balance.css">
+<link rel="stylesheet" href="/static/style.css?v=20261108h">
+  <link rel="stylesheet" href="/balance/static/balance.css?v=20261108h">
 </head>
 <body>
 
@@ -113,8 +113,8 @@
           <li>Keep tapping until the bar finishes (10 seconds). Then do the other hand.</li>
         </ol>
         <div class="tap-buttons">
-          <button id="tap-right-btn" class="btn btn-primary">Start right hand</button>
-          <button id="tap-left-btn" class="btn btn-primary">Start left hand</button>
+          <button id="tap-right-btn" class="btn btn-primary">① Start right hand</button>
+          <button id="tap-left-btn" class="btn btn-primary">② Start left hand</button>
         </div>
         <div id="tap-progress" class="tap-progress hidden"><div id="tap-progress-bar" class="tap-progress-bar"></div></div>
         <div id="tap-message" class="tap-message" role="status"></div>
@@ -127,16 +127,16 @@
 
     <button id="tap-clear-btn" class="btn btn-primary hidden">Clear and start over</button>
 
-    <div class="tap-disclaimer">
+    <div id="tap-footer" class="tap-footer">
       Compared with 47 healthy people and 53 people with Parkinson's (Kasemsap et al., PLOS ONE 2025; data CC BY 4.0).
+      Severity band benchmarked against 489 neurologist-rated videos (Islam et al., npj Digital Medicine 2023; MIT).
       Separate from the spiral result. A screening estimate, not a diagnosis.
     </div>
   </section>
 </main>
 
-<script src="/static/app.js?v=20261108e"></script>
-<script src="/static/tapping.js?v=20261108e"></script>
-<script src="/balance/static/balance.js"></script>
+<script src="/static/app.js?v=20261108h"></script>
+<script src="/static/tapping.js?v=20261108h"></script>
+<script src="/balance/static/balance.js?v=20261108h"></script>
 </body>
 </html>
-

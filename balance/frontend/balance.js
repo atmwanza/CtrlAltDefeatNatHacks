@@ -80,6 +80,7 @@
   const progressBar = $('bal-progress-bar');
   const message = $('bal-message');
   const resultsEl = $('bal-results');
+  const previewWrap = preview.closest('.tap-preview-wrap');
 
   let active = false;          // balance view showing
   let cameraReady = false;
@@ -327,6 +328,8 @@
       return null;
     }
     setMessage(text, 'live');
+    previewWrap.classList.add('is-recording');   // red glow while recording (style.css)
+    previewWrap.classList.remove('is-recording');
     overlay.classList.remove('hidden');
     overlay.classList.add('rec');
     progress.classList.remove('hidden');
