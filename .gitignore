@@ -224,3 +224,5 @@ backend/demo_data/
 backend/demo_data/
 backend/tapping/demo_tap_data/
 backend/tapping/tap_baseline.json
+backend/balance/demo_sway_data/
+backend/balance/baseline_*.json
