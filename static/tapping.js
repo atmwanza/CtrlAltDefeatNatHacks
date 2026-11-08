@@ -27,6 +27,7 @@
   const message = $('tap-message');
   const resultsEl = $('tap-results');
   const asymEl = $('tap-asymmetry');
+  const scoreEl = $('tap-score');
 
   let active = false;          // tapping view showing
   let cameraReady = false;
@@ -36,6 +37,7 @@
   let healthTimer = null;
   let spiralResultsWereShowing = false;
   const results = { right: null, left: null };
+  const sessions = { right: null, left: null };   // backend ids, for the two-hand score
 
   // ---------- switching between the spiral and tapping tests ----------
 
@@ -207,7 +209,9 @@
       return finish(job.error || 'The recording did not come back from the camera.', 'error');
     }
     results[hand] = job.result;
+    sessions[hand] = sid;
     renderResults();
+    updateScore();
     const r = job.result;
     finish(r.valid
       ? `${capitalise(hand)} hand done.${results.right && results.left ? '' : ` Now the ${hand === 'right' ? 'left' : 'right'} hand.`}`
@@ -285,17 +289,21 @@
       r.source ? `source: ${r.source}` : null,
     ].filter(Boolean).join(' · ');
     const warnings = (r.warnings || []).map(w => `<li>${escapeHtml(w)}</li>`).join('');
+    const compare = r.valid && Array.isArray(r.comparison) ? r.comparison.map(compareRow).join('') : '';
     card.innerHTML = `
       <div class="tap-card-head">
         <h3>${capitalise(hand)} hand</h3>
         <span class="tap-card-state">${r.valid ? 'Measured' : 'Not reliable'}</span>
       </div>
       ${warnings ? `<ul class="tap-warnings">${warnings}</ul>` : ''}
-      ${metrics ? `<div class="tap-metrics">${metrics}</div>` : ''}
+      ${compare ? `<div class="tap-section-title">Compared with healthy and Parkinson's averages</div>
+        <div class="tap-compare">${compare}</div>` : ''}
       ${r.series ? `<div class="tap-charts">
         <figure><canvas class="tap-trace"></canvas><figcaption>Finger opening over 10 s · dots = detected taps</figcaption></figure>
         <figure><canvas class="tap-bars"></canvas><figcaption>Size of each tap · line = trend</figcaption></figure>
       </div>` : ''}
+      ${metrics ? `<details class="tap-more"><summary>More measurements</summary>
+        <div class="tap-metrics">${metrics}</div></details>` : ''}
       <div class="tap-quality">${escapeHtml(quality)}</div>`;
     requestAnimationFrame(() => {
       drawTrace(card.querySelector('.tap-trace'), r.series);
@@ -304,9 +312,90 @@
     return card;
   }
 
+  // One feature against the Kasemsap healthy / Parkinson's averages, using the same bar as
+  // the spiral cards (healthy average at 20%, Parkinson's average at 80%).
+  function fmtCompare(c, v) {
+    if (v == null || !Number.isFinite(Number(v))) return '—';
+    v = Math.round(Number(v)) || 0;   // || 0 turns -0 into 0
+    if (c.unit === 'pts') return `${v > 0 ? '+' : ''}${v} pts`;
+    if (c.unit === '%') return `${v}%`;
+    return `${v}`;
+  }
+
+  function compareRow(c) {
+    const valueOk = c.value != null && Number.isFinite(Number(c.value));
+    const pin = valueOk ? gaugePosition({ value: c.value, ctrl_mean: c.healthy_mean, pd_mean: c.pd_mean }) : null;
+    const pct = valueOk && c.pd_mean !== c.healthy_mean
+      ? 100 * (c.value - c.healthy_mean) / (c.pd_mean - c.healthy_mean) : 0;
+    const band = c.scored ? pctBand(pct) : 'pct-unscored';
+    const tag = c.scored ? '' : '<span class="feature-tag">not scored</span>';
+    return `
+      <div class="tap-compare-row ${band}">
+        <div class="tap-compare-head">
+          <span class="tap-compare-label">${escapeHtml(c.label)}${tag}</span>
+          <span class="feature-value">${escapeHtml(fmtCompare(c, c.value))}</span>
+        </div>
+        <div class="gauge-track">
+          <div class="gauge-tick" style="left:${GAUGE_HEALTHY}%"></div>
+          <div class="gauge-tick" style="left:${GAUGE_PD}%"></div>
+          ${pin == null ? '' : `<div class="gauge-pin" style="left:${pin}%"></div>`}
+        </div>
+        <div class="feature-refs">
+          <span style="left:${GAUGE_HEALTHY}%">Healthy ${escapeHtml(fmtCompare(c, c.healthy_mean))}</span>
+          <span style="left:${GAUGE_PD}%">PD ${escapeHtml(fmtCompare(c, c.pd_mean))}</span>
+        </div>
+        <div class="tap-compare-help">${escapeHtml(c.help)}${valueOk ? '' : ' (needs at least 10 taps)'}</div>
+      </div>`;
+  }
+
+  // Two-hand score: worse hand per feature, model validated on people it wasn't trained on.
+  async function updateScore() {
+    const R = results.right, L = results.left;
+    if (!(R && L && R.valid && L.valid)) { scoreEl.classList.add('hidden'); return; }
+    let s;
+    try {
+      const res = await fetch('/tapping/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ right: sessions.right, left: sessions.left }),
+      });
+      s = await res.json();
+      if (!res.ok) throw new Error(s.detail || `Server returned ${res.status}`);
+    } catch (err) {
+      scoreEl.innerHTML = `<div class="tap-score-note">No tapping score: ${escapeHtml(err.message)}</div>`;
+      scoreEl.classList.remove('hidden');
+      return;
+    }
+    const band = riskBand(s.score);
+    const names = { mean: 'opening size', std: 'variability', diff10: 'shrinkage' };
+    const used = s.inputs.map(i => `${names[i.key]} (${i.from_hand})`).join(', ');
+    const v = s.validation;
+    const td = s.tap_difference;
+    scoreEl.innerHTML = `
+      <div class="tap-score-side">
+        <div class="risk-index-label">Tapping result</div>
+        <div class="tap-score-band ${band.cls}">${escapeHtml(band.label)}</div>
+        <div class="risk-number-wrap">
+          <span class="risk-number-caption">Similarity to Parkinson's group</span>
+          <span class="tap-score-number ${band.cls}">${s.score}</span><span class="risk-number-suffix">/100</span>
+        </div>
+      </div>
+      <div class="tap-score-text">
+        <p>Uses the weaker hand for each measure: ${escapeHtml(used)}.</p>
+        <p>Compared with ${s.reference.n_healthy} healthy people and ${s.reference.n_parkinsons} people with Parkinson's
+          (Kasemsap et al., PLOS ONE 2025). Checked on people it wasn't trained on: AUC ${v.auc.toFixed(2)};
+          it caught ${Math.round(v.sensitivity * 100)}% of Parkinson's and cleared ${Math.round(v.specificity * 100)}% of healthy people.</p>
+        <p class="tap-score-muted">Taps differ between hands by ${td.value} (healthy average ${td.healthy_mean.toFixed(1)},
+          Parkinson's ${td.pd_mean.toFixed(1)}); shown, not scored, as tap counts depend on age and setup.
+          A screening estimate, not a diagnosis.</p>
+      </div>`;
+    scoreEl.classList.remove('hidden');
+  }
+
   function renderAsymmetry() {
     const R = results.right, L = results.left;
-    if (!(R && L && R.valid && L.valid)) { asymEl.classList.add('hidden'); return; }
+    const ok = r => r && r.valid && Number.isFinite(r.rate_hz) && Number.isFinite(r.amp_mean);
+    if (!(ok(R) && ok(L))) { asymEl.classList.add('hidden'); return; }
     const ratio = (a, b) => Math.round(Math.min(a, b) / Math.max(a, b) * 100);
     const slower = R.rate_hz < L.rate_hz ? 'right' : 'left';
     const smaller = R.amp_mean < L.amp_mean ? 'right' : 'left';
@@ -379,5 +468,5 @@
   updateButtons();
 
   // For testing from the browser console / DevTools: render a result without a camera.
-  window.drawdxTapping = { results, renderResults, showTapping, showSpiral };
+  window.drawdxTapping = { results, sessions, renderResults, updateScore, showTapping, showSpiral };
 })();

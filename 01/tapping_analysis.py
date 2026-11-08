@@ -59,8 +59,9 @@ def load_clip(zip_bytes):
 
 
 def extract_aperture(frames, t_ms):
-    """Run the hand landmarker over the clip. Returns d(t) (NaN where no hand) and the
-    most common handedness label."""
+    """Run the hand landmarker over the clip. Returns d(t) = thumb-index / palm length,
+    the raw 3-D thumb-index distance in pixels (for the Kasemsap features; both NaN where
+    no hand), and the most common handedness label."""
     import mediapipe as mp
     from mediapipe.tasks import python as mpt
     from mediapipe.tasks.python import vision
@@ -74,6 +75,7 @@ def extract_aperture(frames, t_ms):
         min_tracking_confidence=0.5,
     )
     d = np.full(len(frames), np.nan)
+    dist = np.full(len(frames), np.nan)
     labels = {}
     last_ts = -1
     with vision.HandLandmarker.create_from_options(options) as landmarker:
@@ -90,14 +92,16 @@ def extract_aperture(frames, t_ms):
                 continue
             p = res.hand_landmarks[0]
             xy = lambda k: np.array([p[k].x * w, p[k].y * h])   # pixels, so x and y share a scale
+            xyz = lambda k: np.array([p[k].x * w, p[k].y * h, p[k].z * w])   # z ~ same scale as x
             palm = np.linalg.norm(xy(WRIST) - xy(MIDDLE_MCP))
             if palm > 1:
                 d[i] = np.linalg.norm(xy(THUMB_TIP) - xy(INDEX_TIP)) / palm
+            dist[i] = np.linalg.norm(xyz(THUMB_TIP) - xyz(INDEX_TIP))   # Kasemsap: 3-D tip distance
             if res.handedness:
                 lab = res.handedness[0][0].category_name
                 labels[lab] = labels.get(lab, 0) + 1
     detected_hand = max(labels, key=labels.get) if labels else None
-    return d, detected_hand
+    return d, dist, detected_hand
 
 
 def fill_short_gaps(t_ms, d, max_gap_ms=MAX_GAP_MS):
@@ -200,6 +204,41 @@ def tap_features(t_ms, d, fps_measured=None):
     }
 
 
+KAS_PROMINENCE = 30.0   # Kasemsap: find_peaks prominence 0.3 on the max-normalised series
+
+
+def kasemsap_features(t_ms, dist, fps_measured=None):
+    """The published features of Kasemsap et al. 2025 (PLOS ONE), computed the same way so
+    they can be compared with that study's 47 healthy / 53 Parkinson's reference:
+      amplitude = thumb-index (3-D) distance as % of its maximum in this recording,
+      count  = taps in the window,  mean / std = mean and SD of the tap peak amplitudes,
+      diffN  = peak amplitude of tap 1 minus tap N (percentage points; + = shrinking)."""
+    t_ms = np.asarray(t_ms, float)
+    dist = fill_short_gaps(t_ms, np.asarray(dist, float))
+    ok = ~np.isnan(dist)
+    if ok.sum() < 20:
+        return None
+    t_s = t_ms[ok] / 1000.0
+    grid = np.arange(t_s[0], t_s[-1], 1 / FS)
+    x = np.interp(grid, t_s, dist[ok])
+    capture_fps = fps_measured or (len(t_ms) - 1) / max((t_ms[-1] - t_ms[0]) / 1000, 1e-6)
+    if len(x) > 30:
+        b, a = butter(4, min(LOWPASS_HZ, 0.4 * capture_fps) / (FS / 2))
+        x = filtfilt(b, a, x)
+    if x.max() <= 0:
+        return None
+    k = 100 * x / x.max()
+    peaks, _ = find_peaks(k, prominence=KAS_PROMINENCE, distance=int(MIN_TAP_GAP_S * FS))
+    amps = k[peaks]
+    out = {'count': int(len(peaks)),
+           'duration_s': round(float(grid[-1] - grid[0]), 2),
+           'mean': round(float(amps.mean()), 2) if len(amps) else None,
+           'std': round(float(amps.std()), 2) if len(amps) > 1 else None}
+    for n in (5, 7, 10):
+        out[f'diff{n}'] = round(float(amps[0] - amps[n - 1]), 2) if len(amps) >= n else None
+    return out
+
+
 def _series(grid, x, taps, rate=50):
     """Downsampled trace for plotting on the tablet."""
     step = max(1, FS // rate)
@@ -214,8 +253,12 @@ def analyze_clip(zip_bytes, meta=None):
     meta = meta or {}
     started = time.perf_counter()
     frames, t_ms = load_clip(zip_bytes)
-    d, detected_hand = extract_aperture(frames, t_ms)
+    d, dist, detected_hand = extract_aperture(frames, t_ms)
     result = tap_features(t_ms, d, meta.get('fps_measured'))
+    result['kasemsap'] = kasemsap_features(t_ms, dist, meta.get('fps_measured'))
+    if meta.get('hand') in ('right', 'left') and result['kasemsap']:
+        from tapping_reference import hand_comparison
+        result['comparison'] = hand_comparison(meta['hand'], result['kasemsap'])
     result.update({
         'hand': meta.get('hand'),
         'detected_hand': detected_hand,

@@ -132,6 +132,24 @@ def tapping_status(sid: str):
     return job
 
 
+@router.post('/tapping/compare')
+def tapping_compare(body: dict):
+    """Two-hand score against the Kasemsap reference: {"right": session_id, "left": session_id}."""
+    from tapping_reference import combined_score
+    feats = {}
+    with _jobs_lock:
+        for hand in ('right', 'left'):
+            job = _jobs.get(body.get(hand) or '', {})
+            result = job.get('result') or {}
+            if job.get('state') != 'done' or not result.get('valid'):
+                raise HTTPException(400, f'Record a reliable {hand}-hand trial first.')
+            feats[hand] = result.get('kasemsap')
+    try:
+        return combined_score(feats['right'], feats['left'])
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+
 @router.get('/tapping/latest')
 def tapping_latest():
     with _jobs_lock:
