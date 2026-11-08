@@ -7,7 +7,7 @@
 (() => {
   const TAP_SECONDS = 10;
   const COUNTDOWN = ['3', '2', '1'];
-  const PREVIEW_MS = 500;
+  const STREAM_RETRY_MS = 1000;
   const HEALTH_MS = 2000;
   const STATUS_MS = 500;
   const STATUS_TIMEOUT_MS = 90000;
@@ -31,7 +31,8 @@
   let active = false;          // tapping view showing
   let cameraReady = false;
   let running = false;         // a recording/analysis is in progress
-  let previewTimer = null;
+  let streaming = false;       // live MJPEG preview connected
+  let retryTimer = null;
   let healthTimer = null;
   let spiralResultsWereShowing = false;
   const results = { right: null, left: null };
@@ -96,6 +97,8 @@
       cameraBadge.classList.remove('ok');
     }
     updateButtons();
+    if (cameraReady && !streaming) startPreview();
+    if (!cameraReady && streaming) stopPreview();
     if (!running && !cameraReady) {
       setMessage('Waiting for the camera. Start the Pi, or run the webcam capture on the laptop.', 'warn');
     } else if (!running && message.dataset.kind === 'warn' && message.textContent.startsWith('Waiting')) {
@@ -103,23 +106,34 @@
     }
   }
 
+  // One long-lived MJPEG connection (smooth ~20 fps), relayed by the laptop from the camera.
+  // It keeps running during a recording so the person can keep their hand in view.
   function startPreview() {
-    stopPreview();
-    const tick = () => {
-      if (!active || running || !cameraReady) return;
-      preview.src = `/tapping/preview.jpg?t=${Date.now()}`;
-    };
-    tick();
-    previewTimer = setInterval(tick, PREVIEW_MS);
+    clearTimeout(retryTimer);
+    if (!active || !cameraReady) return;
+    streaming = true;
+    preview.src = `/tapping/stream.mjpg?t=${Date.now()}`;
   }
 
   function stopPreview() {
-    clearInterval(previewTimer);
-    previewTimer = null;
+    clearTimeout(retryTimer);
+    streaming = false;
+    preview.removeAttribute('src');   // closes the stream connection
+    previewEmpty.classList.remove('hidden');
   }
 
   preview.addEventListener('load', () => { previewEmpty.classList.add('hidden'); });
-  preview.addEventListener('error', () => { if (!running) previewEmpty.classList.remove('hidden'); });
+  preview.addEventListener('error', () => {
+    if (!active || !streaming) return;
+    previewEmpty.classList.remove('hidden');
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(startPreview, STREAM_RETRY_MS);   // Wi-Fi blip / camera restart
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!active) return;
+    if (document.hidden) stopPreview(); else startPreview();
+  });
 
   function updateButtons() {
     const disabled = running || !cameraReady;
@@ -145,7 +159,6 @@
     if (running || !cameraReady) return;
     running = true;
     updateButtons();
-    stopPreview();
     setMessage(`${capitalise(hand)} hand: get ready…`);
 
     overlay.classList.remove('hidden');
@@ -175,12 +188,17 @@
     // timer, not requestAnimationFrame: rAF pauses in background tabs and would stall the flow
     await new Promise(resolve => {
       const timer = setInterval(() => {
-        const f = Math.min(1, (performance.now() - t0) / (TAP_SECONDS * 1000));
+        const elapsed = (performance.now() - t0) / 1000;
+        const f = Math.min(1, elapsed / TAP_SECONDS);
         progressBar.style.width = `${f * 100}%`;
-        if (f > 0.1) overlay.textContent = 'Tap!';
+        if (elapsed > 0.8) {   // GO has been seen: shrink to a pill so the live view stays visible
+          overlay.classList.add('rec');
+          overlay.textContent = `● REC  ${Math.max(0, TAP_SECONDS - elapsed).toFixed(0)}s`;
+        }
         if (f >= 1) { clearInterval(timer); resolve(); }
       }, 100);
     });
+    overlay.classList.remove('rec');
     overlay.textContent = 'Stop';
     setMessage('Analysing…');
 
@@ -213,11 +231,12 @@
   function finish(text, kind) {
     running = false;
     overlay.classList.add('hidden');
+    overlay.classList.remove('rec');
     progress.classList.add('hidden');
     progressBar.style.width = '0%';
     setMessage(text, kind);
     updateButtons();
-    startPreview();
+    if (!streaming) startPreview();
   }
 
   const capitalise = s => s.charAt(0).toUpperCase() + s.slice(1);

@@ -734,3 +734,13 @@ body.mode-tapping .spiral-only { display: none !important; }
   .tap-results { grid-template-columns: 1fr; }
   .tap-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* during a recording the countdown shrinks to a pill so the live view stays visible */
+.tap-overlay.rec {
+  inset: 12px auto auto 12px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(192, 57, 43, 0.9);
+  font-size: 16px;
+  letter-spacing: 0.04em;
+}

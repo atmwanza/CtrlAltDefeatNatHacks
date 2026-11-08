@@ -2,14 +2,19 @@
 """DrawDx finger-tapping capture service.
 
 Runs on the Raspberry Pi (camera module), or on the laptop as the webcam fallback, or
-with a synthetic source for testing the plumbing. It records a clip when the laptop asks,
-then uploads it; it never analyses or stores anything itself.
+with a synthetic source for testing the plumbing. It streams a live preview, records a
+clip when the laptop asks, then uploads it; it never analyses or stores anything itself.
 
     Pi:       python3 pi_capture.py                      (SOURCE=picamera, the default)
     Webcam:   SOURCE=webcam python pi/pi_capture.py      (laptop fallback)
-    Testing:  SOURCE=synthetic python pi/pi_capture.py   (blank frames, no camera needed)
+    Testing:  SOURCE=synthetic python pi/pi_capture.py   (moving test pattern, no camera)
 
-HTTP (port 8000): GET /health, GET /snapshot.jpg, POST /record {session_id, hand, duration_s}
+One background thread owns the camera: it timestamps and JPEG-encodes every frame once.
+The live preview and the recorder both reuse those bytes, so the preview can't steal
+frames from a recording or disturb its timing.
+
+HTTP (port 8000): GET /health, GET /stream.mjpg (live preview), GET /snapshot.jpg,
+                  POST /record {session_id, hand, duration_s}
 Every 5 s it says hello to the laptop (POST /pi/hello) so the laptop knows where it is.
 Uploads go to the laptop: POST /tapping/upload (multipart: clip=ZIP, meta=JSON).
 
@@ -23,6 +28,7 @@ Settings (environment variables, all optional):
     EXPOSURE_US   5000   short exposure so fast fingers don't blur (needs a bright lamp)
     GAIN          4.0
     JPEG_QUALITY  85
+    PREVIEW_FPS   20     live preview rate (the recording always keeps every frame)
     LED_PIN       17     BCM pin for the "recording" LED (Pi only; skipped if absent)
 """
 import io
@@ -48,6 +54,7 @@ FPS = int(os.environ.get('FPS', 30 if SOURCE == 'webcam' else 40))
 EXPOSURE_US = int(os.environ.get('EXPOSURE_US', 5000))
 GAIN = float(os.environ.get('GAIN', 4.0))
 JPEG_QUALITY = int(os.environ.get('JPEG_QUALITY', 85))
+PREVIEW_FPS = int(os.environ.get('PREVIEW_FPS', 20))
 LED_PIN = int(os.environ.get('LED_PIN', 17))
 SIZE = (640, 480)
 
@@ -79,8 +86,7 @@ class PiCameraSource:
     def __init__(self):
         from picamera2 import Picamera2
         self.cam = Picamera2()
-        info = self.cam.camera_properties.get('Model', 'unknown')
-        self.name = str(info)
+        self.name = str(self.cam.camera_properties.get('Model', 'unknown'))
         config = self.cam.create_video_configuration(
             main={'size': SIZE, 'format': 'RGB888'},            # BGR byte order in memory
             sensor={'output_size': (1640, 1232), 'bit_depth': 10},   # V2 full-view binned mode
@@ -113,6 +119,7 @@ class WebcamSource:
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, SIZE[0])
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, SIZE[1])
         self.cap.set(cv2.CAP_PROP_FPS, FPS)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)   # newest frame, not a queued old one
         if not self.cap.isOpened():
             raise RuntimeError('Could not open the webcam.')
 
@@ -133,18 +140,22 @@ class WebcamSource:
 
 
 class SyntheticSource:
+    """Moving test pattern at FPS, so the preview stream can be checked without a camera."""
     name = 'synthetic'
 
     def __init__(self):
         self.next_t = time.perf_counter()
+        self.i = 0
 
     def grab(self):
-        # pace at FPS; after idle time, restart the clock instead of bursting to catch up
         self.next_t = max(self.next_t + 1 / FPS, time.perf_counter())
         delay = self.next_t - time.perf_counter()
         if delay > 0:
             time.sleep(delay)
         frame = np.full((SIZE[1], SIZE[0], 3), 40, np.uint8)
+        x = (self.i * 8) % SIZE[0]
+        frame[200:280, x:x + 40] = (60, 160, 255)
+        self.i += 1
         return frame, time.perf_counter_ns()
 
 
@@ -158,17 +169,79 @@ def _encode_jpeg(arr, quality):
         return buf.tobytes()
 
 
+# ---------- the camera loop: sole owner of the camera ----------
+
+class CameraLoop:
+    def __init__(self, src):
+        self.src = src
+        self.cond = threading.Condition()
+        self.latest = None            # (seq, ts_ns, jpeg)
+        self.seq = 0
+        self.recording = None         # list of (ts_ns, jpeg) while recording, else None
+        self.fps = 0.0
+        self.error = None
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        n, t0 = 0, time.perf_counter()
+        while True:
+            try:
+                arr, ts = self.src.grab()
+                jpeg = _encode_jpeg(arr, JPEG_QUALITY)
+                self.error = None
+            except Exception as e:      # camera hiccup: report it and keep trying
+                self.error = str(e)
+                time.sleep(0.2)
+                continue
+            with self.cond:
+                self.seq += 1
+                self.latest = (self.seq, ts, jpeg)
+                if self.recording is not None:
+                    self.recording.append((ts, jpeg))
+                self.cond.notify_all()
+            n += 1
+            now = time.perf_counter()
+            if now - t0 >= 1.0:
+                self.fps, n, t0 = n / (now - t0), 0, now
+
+    def start_recording(self):
+        with self.cond:
+            self.recording = []
+
+    def stop_recording(self):
+        with self.cond:
+            frames, self.recording = self.recording or [], None
+        return frames
+
+    def latest_jpeg(self, timeout=2.0):
+        with self.cond:
+            if self.latest is None:
+                self.cond.wait(timeout)
+            return self.latest[2] if self.latest else None
+
+    def mjpeg(self, max_fps):
+        """multipart/x-mixed-replace stream of the newest frame, at most max_fps."""
+        last_seq, min_dt, last_t = -1, 1.0 / max_fps, 0.0
+        while True:
+            with self.cond:
+                self.cond.wait_for(lambda: self.latest is not None and self.latest[0] != last_seq, timeout=2.0)
+                if self.latest is None or self.latest[0] == last_seq:
+                    continue
+                last_seq, _, jpeg = self.latest
+            wait = min_dt - (time.perf_counter() - last_t)
+            if wait > 0:
+                time.sleep(wait)
+            last_t = time.perf_counter()
+            yield (b'--frame\r\nContent-Type: image/jpeg\r\nContent-Length: '
+                   + str(len(jpeg)).encode() + b'\r\n\r\n' + jpeg + b'\r\n')
+
+
 source = {'picamera': PiCameraSource, 'webcam': WebcamSource, 'synthetic': SyntheticSource}[SOURCE]()
+camera = CameraLoop(source)
 led = _make_led()
-cam_lock = threading.Lock()      # one reader at a time (recording vs snapshot)
 busy = threading.Lock()          # one recording at a time
 state = {'laptop': None, 'last': None}
 app = Flask(__name__)
-
-
-def grab():
-    with cam_lock:
-        return source.grab()
 
 
 def post_laptop(path, timeout, **kw):
@@ -186,15 +259,16 @@ def post_laptop(path, timeout, **kw):
 
 
 def record_and_upload(sid, hand, duration):
-    frames, ts = [], []
+    frames = []
     try:
         led.on()
-        t_end = time.monotonic() + duration
-        while time.monotonic() < t_end:
-            arr, t = grab()
-            frames.append(_encode_jpeg(arr, JPEG_QUALITY))
-            ts.append(t)
+        camera.start_recording()
+        time.sleep(duration)
+        frames = camera.stop_recording()
         led.off()
+        if len(frames) < 2:
+            raise RuntimeError(f'only {len(frames)} frames captured ({camera.error or "camera stalled"})')
+        ts = [t for t, _ in frames]
 
         dt = [(b - a) / 1e6 for a, b in zip(ts, ts[1:])]
         med = statistics.median(dt) if dt else 0
@@ -205,8 +279,8 @@ def record_and_upload(sid, hand, duration):
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, 'w', zipfile.ZIP_STORED) as z:   # JPEGs are already compressed
             z.writestr('timestamps.csv', 'frame,sensor_ts_ns\n' + ''.join(f'{i},{t}\n' for i, t in enumerate(ts)))
-            for i, f in enumerate(frames):
-                z.writestr(f'{i:05d}.jpg', f)
+            for i, (_, jpeg) in enumerate(frames):
+                z.writestr(f'{i:05d}.jpg', jpeg)
         meta = dict(session_id=sid, hand=hand, duration_s=duration, n_frames=len(ts), fps_cfg=FPS,
                     fps_measured=round(fps, 2), drops=drops, exposure_us=EXPOSURE_US, gain=GAIN,
                     res=list(SIZE), camera=source.name, source=SOURCE,
@@ -221,6 +295,7 @@ def record_and_upload(sid, hand, duration):
         print(f'[capture] {sid} recording failed: {e}', flush=True)
         state['last'] = {'session_id': sid, 'error': str(e)}
     finally:
+        camera.stop_recording()
         led.off()
         frames.clear()          # nothing is kept on the capture device
         busy.release()
@@ -237,28 +312,37 @@ def record():
     return jsonify(accepted=True), 202
 
 
+@app.get('/stream.mjpg')
+def stream():
+    return Response(camera.mjpeg(PREVIEW_FPS), mimetype='multipart/x-mixed-replace; boundary=frame',
+                    headers={'Cache-Control': 'no-store, no-cache', 'X-Accel-Buffering': 'no'})
+
+
 @app.get('/snapshot.jpg')
 def snapshot():
-    if busy.locked():
-        return 'recording', 409          # never take frames away from a recording
-    arr, _ = grab()
-    return Response(_encode_jpeg(arr, 70), mimetype='image/jpeg', headers={'Cache-Control': 'no-store'})
+    jpeg = camera.latest_jpeg()
+    if jpeg is None:
+        return 'camera warming up', 503
+    return Response(jpeg, mimetype='image/jpeg', headers={'Cache-Control': 'no-store'})
 
 
 @app.get('/health')
 def health():
     return jsonify(ok=True, busy=busy.locked(), source=SOURCE, camera=source.name, fps_cfg=FPS,
+                   fps_actual=round(camera.fps, 1), camera_error=camera.error,
                    laptop=state['laptop'], last=state['last'])
 
 
 def heartbeat():
     while True:
-        post_laptop('/pi/hello', timeout=2, json={'port': PORT, 'source': SOURCE, 'camera': source.name})
+        post_laptop('/pi/hello', timeout=2, json={'port': PORT, 'source': SOURCE, 'camera': source.name,
+                                                   'fps_actual': round(camera.fps, 1)})
         time.sleep(5)
 
 
 if __name__ == '__main__':
-    print(f'[capture] source={SOURCE} camera={source.name} fps={FPS} port={PORT} laptop={LAPTOP_URLS}', flush=True)
+    print(f'[capture] source={SOURCE} camera={source.name} fps={FPS} preview={PREVIEW_FPS}fps '
+          f'port={PORT} laptop={LAPTOP_URLS}', flush=True)
     threading.Thread(target=heartbeat, daemon=True).start()
     # On the laptop (webcam/synthetic) only the local backend needs to reach us.
     app.run(host='127.0.0.1' if LOCAL else '0.0.0.0', port=PORT, threaded=True)
