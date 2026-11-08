@@ -225,3 +225,6 @@ tablet_drawings/*
 
 # every /analyze call saves the drawing here; never publish visitors' drawings
 01/recordings/
+
+# balance runs save their numbers here; never publish visitors' results
+balance/backend/balance/recordings/
