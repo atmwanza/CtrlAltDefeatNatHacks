@@ -26,6 +26,8 @@ let activePenPointerId = null;
 let spiralGeometry = null; // {cx, cy, b} set by drawSpiralTemplate(), reused by the heatmap
 let lastInputLabel = 'S Pen';
 let lastPointerType = 'pen'; // what actually gets reported to the backend — never hardcode this in the payload
+let demoRunning = false;  // true while a demo recording is animating onto the canvas
+let replayToken = 0;      // bumped on every reset; a replay stops once its token is stale
 
 // ---------- device mode (Android S Pen vs iPad Apple Pencil) ----------
 
@@ -189,6 +191,7 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 canvas.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch') return; // reject palm; 'pen' and 'mouse' (laptop testing) are allowed
+  if (demoRunning) return; // don't mix live ink into a demo replay
   canvas.setPointerCapture(e.pointerId);
   activePenPointerId = e.pointerId;
   lastPointerType = e.pointerType;
@@ -283,8 +286,9 @@ function updateTelemetry() {
 
 function maybeEnableAnalyze() {
   // Off while results are showing: re-tapping would re-send the same drawing as a new result.
+  // Also off during a demo replay, which submits itself when it finishes.
   const resultsShowing = !resultsPanel.classList.contains('hidden');
-  analyzeBtn.disabled = resultsShowing || points.length < MIN_POINTS_TO_ANALYZE;
+  analyzeBtn.disabled = resultsShowing || demoRunning || points.length < MIN_POINTS_TO_ANALYZE;
 }
 
 function showLiftedTelemetry() {
@@ -303,6 +307,8 @@ function showLiftedTelemetry() {
 clearBtn.addEventListener('click', resetCanvasState);
 
 function resetCanvasState() {
+  replayToken += 1; // stops any demo replay still animating
+  demoRunning = false;
   points = [];
   strokeIndex = 0;
   isDrawing = false;
@@ -450,7 +456,7 @@ function displayResults(data) {
   grid.innerHTML = '';
   for (const [key, f] of Object.entries(data.features)) {
     const card = document.createElement('div');
-    const band2 = pctBand(f.percentile_pd);
+    const band2 = f.scored === false ? 'pct-unscored' : pctBand(f.percentile_pd);
     card.className = `feature-card ${band2}`;
     const pinLeft = Math.min(96, Math.max(4, Number(f.percentile_pd) || 0));
     const fmt = v => escapeHtml(formatFeatureValue(key, v));
@@ -459,7 +465,7 @@ function displayResults(data) {
       <div class="feature-name">${escapeHtml(featureLabel(key))}${tag}</div>
       <div class="feature-value">${fmt(f.value)}</div>
       <div class="gauge-track"><div class="gauge-pin" style="left:${pinLeft}%"></div></div>
-      <div class="feature-refs"><span>ctrl ${fmt(f.ctrl_mean)}</span><span>PD ${fmt(f.pd_mean)}</span></div>
+      <div class="feature-refs"><span>Healthy ${fmt(f.ctrl_mean)}</span><span>PD ${fmt(f.pd_mean)}</span></div>
     `;
     grid.appendChild(card);
   }
@@ -473,7 +479,14 @@ function displayResults(data) {
   }));
   warningsBlock.classList.toggle('hidden', warnings.length === 0);
 
-  document.getElementById('interpretation-block').textContent = data.interpretation || '';
+  // The backend also appends the warnings to the interpretation (" Note: <w1> <w2>"); they
+  // already have their own list above, so drop that exact suffix rather than show them twice.
+  let interpretation = data.interpretation || '';
+  const noteSuffix = ' Note: ' + warnings.join(' ');
+  if (warnings.length && interpretation.endsWith(noteSuffix)) {
+    interpretation = interpretation.slice(0, -noteSuffix.length);
+  }
+  document.getElementById('interpretation-block').textContent = interpretation;
   document.getElementById('disclaimer-block').textContent =
     data.disclaimer || 'Screening tool only. Not a clinical diagnosis.';
 
@@ -537,12 +550,23 @@ function drawSpeedHeatmap() {
   const offX = (rect.width - spanX * scale) / 2 - minX * scale;
   const offY = (rect.height - spanY * scale) / 2 - minY * scale;
 
+  // Speed of segment i (points[i-1] -> points[i]), averaged over ~100 ms of the same
+  // stroke. Per-sample speed is mostly quantisation noise (whole-pixel steps every few ms),
+  // which pushed nearly every segment into the top colour band.
+  const HALF_WINDOW_MS = 50;
   const velocities = [];
+  let lo = 0, hi = 0;
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1], b = points[i];
     if (a.s !== b.s) { velocities.push(0); continue; }
-    const dt = Math.max(b.t - a.t, 1);
-    velocities.push(Math.hypot(b.x - a.x, b.y - a.y) / dt);
+    const tMid = (a.t + b.t) / 2;
+    if (lo > i - 1) lo = i - 1;
+    while (lo < i - 1 && (points[lo].s !== a.s || points[lo].t < tMid - HALF_WINDOW_MS)) lo++;
+    if (hi < i) hi = i;
+    while (hi + 1 < points.length && points[hi + 1].s === a.s && points[hi + 1].t <= tMid + HALF_WINDOW_MS) hi++;
+    let dist = 0;
+    for (let j = lo + 1; j <= hi; j++) dist += Math.hypot(points[j].x - points[j - 1].x, points[j].y - points[j - 1].y);
+    velocities.push(dist / Math.max(points[hi].t - points[lo].t, 1));
   }
   const sorted = [...velocities].sort((a, b) => a - b);
   const p5 = sorted[Math.floor(sorted.length * 0.05)] || 0;
@@ -583,18 +607,26 @@ async function loadDemo(kind) {
   resetCanvasState();
   lastInputLabel = DEMO_LABELS[kind];
   lastPointerType = 'pen';
+  // Tapping a demo again, Clear or Draw Again resets the canvas, which bumps the token
+  // and stops this replay, so two replays never draw into the same points[].
+  const myToken = replayToken;
+  demoRunning = true;
+  maybeEnableAnalyze();
 
   try {
     demoRecordings = demoRecordings || await fetch('/static/demo_recordings.json').then(r => r.json());
   } catch (err) {
+    if (myToken === replayToken) demoRunning = false;
     alert(`Could not load the demo recording: ${err.message}`);
     return;
   }
+  if (myToken !== replayToken) return;
   const replay = fitRecordingToCanvas(demoRecordings[kind]);
   let i = 0;
   const pointsPerFrame = 40; // ~1-2 s of animation for a 20-30 s recording
 
   function step() {
+    if (myToken !== replayToken) return;
     const end = Math.min(i + pointsPerFrame, replay.length);
     for (; i < end; i++) {
       points.push(replay[i]);
@@ -606,6 +638,7 @@ async function loadDemo(kind) {
       requestAnimationFrame(step);
     } else {
       strokeIndex = 1;
+      demoRunning = false;
       submitDrawing(kind);
     }
   }

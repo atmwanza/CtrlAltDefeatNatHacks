@@ -380,6 +380,10 @@ main {
 .pct-moderate .feature-value { color: var(--moderate); }
 .pct-high .feature-value { color: var(--high); }
 
+/* Shown for context but not part of the score: neutral, so it never reads as a red flag */
+.pct-unscored .feature-value { color: var(--text-muted); }
+.pct-unscored .gauge-track { background: var(--border); }
+
 /* interpretation + disclaimer */
 
 #interpretation-block {
