@@ -453,13 +453,13 @@ function displayResults(data) {
     const band2 = pctBand(f.percentile_pd);
     card.className = `feature-card ${band2}`;
     const pinLeft = Math.min(96, Math.max(4, Number(f.percentile_pd) || 0));
-    const unit = FEATURE_UNITS[key] || '';
+    const fmt = v => escapeHtml(formatFeatureValue(key, v));
     const tag = f.scored === false ? '<span class="feature-tag">not in score</span>' : '';
     card.innerHTML = `
       <div class="feature-name">${escapeHtml(featureLabel(key))}${tag}</div>
-      <div class="feature-value">${escapeHtml(f.value)}${unit}</div>
+      <div class="feature-value">${fmt(f.value)}</div>
       <div class="gauge-track"><div class="gauge-pin" style="left:${pinLeft}%"></div></div>
-      <div class="feature-refs"><span>ctrl ${escapeHtml(f.ctrl_mean)}${unit}</span><span>PD ${escapeHtml(f.pd_mean)}${unit}</span></div>
+      <div class="feature-refs"><span>ctrl ${fmt(f.ctrl_mean)}</span><span>PD ${fmt(f.pd_mean)}</span></div>
     `;
     grid.appendChild(card);
   }
@@ -490,7 +490,7 @@ function displayResults(data) {
     mockBadge.classList.add('hidden');
   }
 
-  drawTremorHeatmap();
+  drawSpeedHeatmap();
 }
 
 function featureLabel(key) {
@@ -504,7 +504,12 @@ function featureLabel(key) {
   return labels[key] || key;
 }
 
-const FEATURE_UNITS = { dom_freq: ' Hz' };
+// Fixed decimals so cards line up and never show a bare "0" or "1".
+function formatFeatureValue(key, value) {
+  const v = Number(value);
+  if (!Number.isFinite(v)) return String(value ?? '');
+  return key === 'dom_freq' ? `${v.toFixed(1)} Hz` : v.toFixed(3);
+}
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, ch => (
@@ -512,7 +517,7 @@ function escapeHtml(value) {
   ));
 }
 
-function drawTremorHeatmap() {
+function drawSpeedHeatmap() {
   const hm = document.getElementById('heatmap-canvas');
   const hctx = hm.getContext('2d');
   const rect = hm.getBoundingClientRect();
@@ -560,30 +565,44 @@ function drawTremorHeatmap() {
 
 // ---------- demo presets ----------
 
-demoHealthyBtn.addEventListener('click', () => loadDemo('control'));
+// The demo buttons replay real recordings from the UCI reference dataset: a
+// typical healthy control (C_0006) and a typical person with Parkinson's
+// (P_27110001), each scoring near their group's median when left out of the
+// reference. They're sent as device_platform "demo", so no tablet calibration
+// is applied — they were recorded on the UCI tablet, not this one.
+demoHealthyBtn.addEventListener('click', () => loadDemo('healthy'));
 demoPdBtn.addEventListener('click', () => loadDemo('pd'));
 
-function loadDemo(kind) {
+const DEMO_LABELS = { healthy: 'Real recording · healthy', pd: "Real recording · Parkinson's" };
+let demoRecordings = null;
+
+async function loadDemo(kind) {
   dismissOverlayIfNeeded();
   showDrawingView();
   initCanvas();
   resetCanvasState();
-  lastInputLabel = 'Demo';
-  lastPointerType = 'pen'; // synthetic data is generated to be pen-like (full pressure range), so report it as such
+  lastInputLabel = DEMO_LABELS[kind];
+  lastPointerType = 'pen';
 
-  const synthetic = generateSyntheticSpiral(kind);
+  try {
+    demoRecordings = demoRecordings || await fetch('/static/demo_recordings.json').then(r => r.json());
+  } catch (err) {
+    alert(`Could not load the demo recording: ${err.message}`);
+    return;
+  }
+  const replay = fitRecordingToCanvas(demoRecordings[kind]);
   let i = 0;
-  const pointsPerFrame = 40; // ~2-3 s of animation for an 18-24 s synthetic drawing
+  const pointsPerFrame = 40; // ~1-2 s of animation for a 20-30 s recording
 
   function step() {
-    const end = Math.min(i + pointsPerFrame, synthetic.length);
+    const end = Math.min(i + pointsPerFrame, replay.length);
     for (; i < end; i++) {
-      points.push(synthetic[i]);
-      paintSegment(synthetic[i]);
+      points.push(replay[i]);
+      paintSegment(replay[i]);
     }
     updateTelemetry();
     maybeEnableAnalyze();
-    if (i < synthetic.length) {
+    if (i < replay.length) {
       requestAnimationFrame(step);
     } else {
       strokeIndex = 1;
@@ -593,49 +612,35 @@ function loadDemo(kind) {
   requestAnimationFrame(step);
 }
 
-function generateSyntheticSpiral(kind) {
+// Place a recording on the on-screen template: its start point on START, its
+// outer radius at the template's, and its end rotated onto FINISH. Translation,
+// uniform scaling and rotation don't change any of the features (all are
+// size- and orientation-independent), so the score is the recording's own.
+function fitRecordingToCanvas(rec) {
   const rect = canvas.getBoundingClientRect();
   const cx = rect.width / 2, cy = rect.height / 2;
   const maxR = Math.min(rect.width, rect.height) * 0.42;
-  const thetaMax = SPIRAL_TURNS * 2 * Math.PI;
-  const b = maxR / thetaMax;
 
-  const isPd = kind === 'pd';
-  const durationMs = isPd ? 24000 : 18000; // inside the UCI reference range (14-48 s)
-  const hz = 200;
-  const n = Math.round((durationMs / 1000) * hz);
-  // Hz here means oscillations per second of WALL-CLOCK TIME, matching what a
-  // real backend's FFT measures — phase must be driven by tSec, not by spiral
-  // angle, or the "4-6Hz tremor" ends up at a fraction of a Hz once drawn out
-  // over several seconds (caught in review: theta-driven phase is dimensionally
-  // wrong for a temporal frequency target).
-  const tremorHz = isPd ? 4.3 + Math.random() * 1.5 : 8 + Math.random() * 2;
-  const tremorAmpPx = isPd ? maxR * 0.028 : maxR * 0.004;
-  const tremorAxis = Math.PI / 3.3; // fixed direction, not purely radial — radial-only wobble draws a symmetric gear/flower, not a hand tremor
-  const pressureMean = isPd ? 0.58 : 0.84;
-  const pressureAmp = isPd ? 0.33 : 0.15; // sized so std/mean lands near the target p_cv (0.40 / 0.13)
+  const x0 = rec.x[0], y0 = rec.y[0];
+  const n = rec.x.length;
+  let recMaxR = 0;
+  for (let i = 0; i < n; i++) recMaxR = Math.max(recMaxR, Math.hypot(rec.x[i] - x0, rec.y[i] - y0));
+  const scale = maxR / recMaxR;
+  const endAngle = Math.atan2(rec.y[n - 1] - y0, rec.x[n - 1] - x0);
+  const rot = spiralAngle(SPIRAL_TURNS * 2 * Math.PI) - endAngle;
+  const cosR = Math.cos(rot), sinR = Math.sin(rot);
 
+  const tStart = performance.now();
   const out = [];
-  let t = performance.now();
   for (let i = 0; i < n; i++) {
-    const tSec = i / hz;
-    const frac = i / (n - 1);
-    const theta = thetaMax * frac;
-    const phase = 2 * Math.PI * tremorHz * tSec;
-    const wobble = Math.sin(phase);
-
-    const idealR = b * theta;
-    const idealX = cx + idealR * Math.cos(spiralAngle(theta));
-    const idealY = cy + idealR * Math.sin(spiralAngle(theta));
-    const x = idealX + tremorAmpPx * wobble * Math.cos(tremorAxis);
-    const y = idealY + tremorAmpPx * wobble * Math.sin(tremorAxis);
-
-    // Pressure rides the same tremor phase instead of independent per-sample
-    // noise — a hand can't modulate grip at 200Hz, so white noise there looked
-    // like fuzz rather than a 4-6Hz pulse.
-    const p = Math.min(1, Math.max(0.05, pressureMean + pressureAmp * Math.sin(phase + 0.6)));
-    out.push({ x, y, t, p, s: 0 });
-    t += 1000 / hz;
+    const dx = (rec.x[i] - x0) * scale, dy = (rec.y[i] - y0) * scale;
+    out.push({
+      x: cx + dx * cosR - dy * sinR,
+      y: cy + dx * sinR + dy * cosR,
+      t: tStart + rec.t[i],
+      p: Math.min(1, Math.max(0, rec.p[i] / 1023)),
+      s: 0,
+    });
   }
   return out;
 }

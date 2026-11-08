@@ -281,6 +281,8 @@ main {
   color: var(--text-muted);
 }
 
+.legend-title { font-weight: 600; }
+
 .dot {
   display: inline-block;
   width: 9px;
