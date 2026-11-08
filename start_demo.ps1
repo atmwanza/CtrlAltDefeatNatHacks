@@ -89,7 +89,9 @@ if (-not (Test-Path $Adb)) {
             while ($true) {
                 Start-Sleep -Seconds 10
                 $state = (& $adb -s $serial get-state 2>&1 | Out-String).Trim()
-                if ($state -ne "device") { & $adb connect $serial | Out-Null }
+                # "offline" means adb still lists a dead link and `connect` replies "already connected",
+                # so drop it first, then reconnect
+                if ($state -ne "device") { & $adb disconnect $serial 2>&1 | Out-Null; & $adb connect $serial 2>&1 | Out-Null }
                 $fwd = & $adb -s $serial reverse --list 2>&1 | Out-String
                 if ($fwd -notmatch "tcp:$port") { & $adb -s $serial reverse "tcp:$port" "tcp:$port" | Out-Null }
             }
