@@ -1,0 +1,2 @@
+# Files that run on the Raspberry Pi keep Linux line endings even on a Windows checkout
+pi/** text eol=lf

@@ -13,8 +13,9 @@
     <h1>DrawDx</h1>
     <p class="overlay-sub">Parkinson's spiral screening</p>
     <ol class="overlay-steps">
-      <li>Trace the gray spiral from the <strong>START</strong> dot at the center to the <strong>FINISH</strong> ring at the outside.</li>
-      <li>Use the <span class="pen-name">S&nbsp;Pen</span> to trace the spiral as accurately as you can, at a comfortable pace.</li>      <li>Once you reach the finish ring, tap <strong>Analyze Spiral</strong>.</li>
+      <li>Press the <span class="pen-name">S&nbsp;Pen</span> down firmly on the <strong>START</strong> dot, the way you'd write with a pen.</li>
+      <li>Keeping that pressure, trace the gray spiral to the <strong>FINISH</strong> ring in one stroke, at a steady pace (about 15–30 seconds).</li>
+      <li>Once you reach the finish ring, tap <strong>Analyze Spiral</strong>.</li>
     </ol>
     <button id="begin-drawing-btn" class="btn btn-primary">Begin Drawing</button>
   </div>
@@ -23,47 +24,57 @@
 <header class="topbar">
   <div class="topbar-left">
     <span class="brand">DrawDx</span>
-    <span id="mock-badge" class="mock-badge hidden">MOCK DATA</span>
-    <select id="device-select" class="device-select" aria-label="Tablet type">
+    <div class="mode-switch" role="tablist" aria-label="Test">
+      <button id="mode-spiral-btn" class="mode-btn active" role="tab" aria-selected="true">Spiral</button>
+      <button id="mode-tapping-btn" class="mode-btn" role="tab" aria-selected="false">Tapping</button>
+    </div>
+    <span id="mock-badge" class="mock-badge hidden spiral-only">MOCK DATA</span>
+    <select id="device-select" class="device-select spiral-only" aria-label="Tablet type">
       <option value="auto">Auto-detect</option>
       <option value="android">Android · S Pen</option>
       <option value="ios">iPad · Apple Pencil</option>
     </select>
-    <span id="telemetry-strip" class="telemetry">Waiting for S Pen&hellip;</span>
+    <span id="telemetry-strip" class="telemetry spiral-only">Waiting for S Pen&hellip;</span>
+    <span id="tap-camera-badge" class="tap-camera-badge tapping-only">Camera: checking&hellip;</span>
   </div>
   <div class="topbar-right">
-    <button id="demo-healthy-btn" class="btn btn-ghost">▶ Healthy</button>
-    <button id="demo-pd-btn" class="btn btn-ghost">▶ PD</button>
-    <button id="clear-btn" class="btn btn-ghost">Clear</button>
-    <button id="analyze-btn" class="btn btn-primary" disabled>Analyze Spiral</button>
+    <button id="demo-healthy-btn" class="btn btn-ghost spiral-only">▶ Demo: Healthy</button>
+    <button id="demo-pd-btn" class="btn btn-ghost spiral-only">▶ Demo: PD</button>
+    <button id="clear-btn" class="btn btn-ghost spiral-only">Clear</button>
+    <button id="analyze-btn" class="btn btn-primary spiral-only" disabled>Analyze Spiral</button>
   </div>
 </header>
 
 <main>
   <div id="canvas-container">
     <canvas id="spiral-canvas"></canvas>
+    <div id="draw-warning" class="draw-warning hidden" role="alert"></div>
   </div>
 
   <section id="results-panel" class="hidden">
     <div id="risk-score-block">
       <div id="risk-score-side">
-        <div class="risk-index-label">Kinematic Deviation Index</div>
-        <div class="risk-number-wrap">
-          <span id="risk-score-number">—</span>
-          <span class="risk-number-suffix">/100</span>
-        </div>
+        <div class="risk-index-label">Screening result</div>
         <div id="risk-band-label"></div>
-        <div class="risk-index-sub">Weighted composite percentile across 6 reference biomarkers — not a diagnostic probability</div>
+        <div class="risk-number-wrap">
+          <span class="risk-number-caption">Similarity to Parkinson's group</span>
+          <span id="risk-score-number">—</span><span class="risk-number-suffix">/100</span>
+        </div>
+        <div class="risk-index-sub">Compared with a clinical dataset of 76 people (15 healthy, 61 with Parkinson's). A screening estimate, not a diagnosis.</div>
       </div>
       <div id="heatmap-side">
         <canvas id="heatmap-canvas"></canvas>
         <div class="heatmap-legend">
-          <span><i class="dot low"></i> Smooth</span>
-          <span><i class="dot moderate"></i> Moderate</span>
-          <span><i class="dot high"></i> Tremor</span>
+          <span class="legend-title">Line steadiness:</span>
+          <span><i class="dot low"></i> Steady</span>
+          <span><i class="dot moderate"></i> Some wobble</span>
+          <span><i class="dot high"></i> Strong wobble</span>
+          <span><i class="dot ghost"></i> Template</span>
         </div>
       </div>
     </div>
+
+    <ul id="warnings-block" class="hidden"></ul>
 
     <div id="features-grid"></div>
 
@@ -75,9 +86,52 @@
 
     <button id="draw-again-btn" class="btn btn-primary">Draw Again</button>
   </section>
+
+  <section id="tapping-panel" class="hidden">
+    <div class="tap-header">
+      <div>
+        <h2>Finger tapping</h2>
+        <p class="tap-sub">MDS-UPDRS 3.4, the clinician's test for slowness of movement (bradykinesia)</p>
+      </div>
+      <span class="tap-proto">Prototype · published reference</span>
+    </div>
+
+    <div class="tap-grid">
+      <div class="tap-camera">
+        <div class="tap-preview-wrap">
+          <img id="tap-preview" alt="Camera view of the hand">
+          <div id="tap-preview-empty" class="tap-preview-empty">Camera preview appears here</div>
+          <div id="tap-overlay" class="tap-overlay hidden"></div>
+        </div>
+      </div>
+      <div class="tap-side">
+        <ol class="tap-steps">
+          <li>Rest your forearm on the table with your hand on the mark, facing the camera.</li>
+          <li>At <strong>GO</strong>, tap your index finger on your thumb <strong>as fast and as big as you can</strong>, opening wide from the very first tap.</li>
+          <li>Keep tapping until the bar finishes (10 seconds). Then do the other hand.</li>
+        </ol>
+        <div class="tap-buttons">
+          <button id="tap-right-btn" class="btn btn-primary">Start right hand</button>
+          <button id="tap-left-btn" class="btn btn-primary">Start left hand</button>
+        </div>
+        <div id="tap-progress" class="tap-progress hidden"><div id="tap-progress-bar" class="tap-progress-bar"></div></div>
+        <div id="tap-message" class="tap-message" role="status"></div>
+      </div>
+    </div>
+
+    <div id="tap-score" class="tap-score hidden"></div>
+    <div id="tap-results" class="tap-results"></div>
+    <div id="tap-asymmetry" class="tap-asymmetry hidden"></div>
+
+    <div class="tap-disclaimer">
+      Compared with 47 healthy people and 53 people with Parkinson's (Kasemsap et al., PLOS ONE 2025; data CC BY 4.0).
+      Separate from the spiral result. A screening estimate, not a diagnosis.
+    </div>
+  </section>
 </main>
 
 <script src="/static/app.js"></script>
+<script src="/static/tapping.js"></script>
 </body>
 </html>
 

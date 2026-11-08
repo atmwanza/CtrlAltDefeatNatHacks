@@ -1,0 +1,151 @@
+{
+ "source": {
+  "citation": "Kasemsap N et al. Screening for Parkinson's disease using \"computer vision\". PLOS ONE 20(8): e0330373 (2025)",
+  "data": "figshare 10.6084/m9.figshare.28883489 (Parkinson_data.xlsx), CC BY 4.0",
+  "n_healthy": 47,
+  "n_parkinsons": 53,
+  "protocol": "smartphone, 30 fps, 10 s per hand, \"as quickly and wide open as possible\", MediaPipe; controls 59.5 +/- 11.7 y, PD 60.6 +/- 10.0 y; PD diagnosed by a neurologist (MDS criteria)",
+  "definitions": {
+   "count": "taps in the 10-s window",
+   "mean": "mean peak amplitude, % of that hand's maximum thumb-index distance",
+   "std": "SD of peak amplitudes, % of maximum",
+   "diffN": "peak amplitude of tap 1 minus tap N, percentage points (positive = shrinking)",
+   "tap_diff": "|right - left| tap count"
+  }
+ },
+ "features": {
+  "rp_count": {
+   "hc_mean": 24.64,
+   "hc_sd": 7.32,
+   "pd_mean": 17.87,
+   "pd_sd": 7.79,
+   "auc_single": 0.755
+  },
+  "lp_count": {
+   "hc_mean": 24.55,
+   "hc_sd": 7.22,
+   "pd_mean": 17.87,
+   "pd_sd": 5.63,
+   "auc_single": 0.765
+  },
+  "rp_mean": {
+   "hc_mean": 85.42,
+   "hc_sd": 6.93,
+   "pd_mean": 71.41,
+   "pd_sd": 15.98,
+   "auc_single": 0.825
+  },
+  "lp_mean": {
+   "hc_mean": 83.15,
+   "hc_sd": 8.02,
+   "pd_mean": 75.28,
+   "pd_sd": 10.7,
+   "auc_single": 0.716
+  },
+  "rp_std": {
+   "hc_mean": 7.93,
+   "hc_sd": 3.94,
+   "pd_mean": 14.42,
+   "pd_sd": 9.99,
+   "auc_single": 0.765
+  },
+  "lp_std": {
+   "hc_mean": 8.22,
+   "hc_sd": 3.99,
+   "pd_mean": 13.09,
+   "pd_sd": 8.17,
+   "auc_single": 0.749
+  },
+  "rp_diff5": {
+   "hc_mean": -0.28,
+   "hc_sd": 14.07,
+   "pd_mean": 8.59,
+   "pd_sd": 17.99,
+   "auc_single": 0.671
+  },
+  "lp_diff5": {
+   "hc_mean": -1.89,
+   "hc_sd": 12.78,
+   "pd_mean": 5.16,
+   "pd_sd": 17.89,
+   "auc_single": 0.607
+  },
+  "rp_diff7": {
+   "hc_mean": 0.84,
+   "hc_sd": 16.01,
+   "pd_mean": 13.98,
+   "pd_sd": 23.05,
+   "auc_single": 0.695
+  },
+  "lp_diff7": {
+   "hc_mean": 0.1,
+   "hc_sd": 11.71,
+   "pd_mean": 13.18,
+   "pd_sd": 21.61,
+   "auc_single": 0.711
+  },
+  "rp_diff10": {
+   "hc_mean": 2.6,
+   "hc_sd": 15.62,
+   "pd_mean": 20.47,
+   "pd_sd": 28.47,
+   "auc_single": 0.717
+  },
+  "lp_diff10": {
+   "hc_mean": 0.42,
+   "hc_sd": 11.26,
+   "pd_mean": 17.61,
+   "pd_sd": 24.64,
+   "auc_single": 0.767
+  },
+  "tap_diff": {
+   "hc_mean": 0.38,
+   "hc_sd": 0.74,
+   "pd_mean": 2.79,
+   "pd_sd": 5.04,
+   "auc_single": 0.696
+  }
+ },
+ "score": {
+  "model": "L2 logistic regression (lambda=1.0) on standardised features, worse hand per feature",
+  "inputs": [
+   "worse_mean",
+   "worse_std",
+   "worse_diff10"
+  ],
+  "input_definitions": {
+   "worse_mean": "min(rp_mean, lp_mean)",
+   "worse_std": "max(rp_std, lp_std)",
+   "worse_diff10": "max(rp_diff10, lp_diff10)"
+  },
+  "mean": [
+   74.493395,
+   12.954636,
+   17.265809
+  ],
+  "sd": [
+   14.015265,
+   8.590863,
+   24.072141
+  ],
+  "intercept": 0.567463,
+  "coef": [
+   -1.145559,
+   0.706593,
+   0.902084
+  ],
+  "validation": {
+   "method": "leave-one-person-out",
+   "auc": 0.818,
+   "sensitivity": 0.811,
+   "specificity": 0.723,
+   "threshold": 0.5
+  },
+  "not_scored": [
+   "rp_count",
+   "lp_count",
+   "tap_diff"
+  ],
+  "why_not_scored": "tap counts depend on age and recording setup"
+ }
+}

@@ -1,0 +1,10 @@
+fastapi>=0.100
+uvicorn>=0.23
+numpy>=1.24
+# finger-tapping prototype (laptop side)
+mediapipe==1.2.2
+scipy>=1.11
+python-multipart>=0.0.9
+requests>=2.31
+# webcam fallback capture (pi/pi_capture.py on the laptop); the Pi uses apt packages instead
+flask>=3.0
