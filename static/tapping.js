@@ -80,8 +80,10 @@
     }
   }
 
-  spiralTab.addEventListener('click', showSpiral);
-  tappingTab.addEventListener('click', showTapping);
+  // A tab switch is a tap, so it may (re)enter fullscreen: Chrome drops fullscreen on
+  // various events (reload, back gesture), and this brings it back on every switch.
+  spiralTab.addEventListener('click', () => { enterFullscreen(); showSpiral(); });
+  tappingTab.addEventListener('click', () => { enterFullscreen(); showTapping(); });
 
   // ---------- camera status + preview ----------
 
