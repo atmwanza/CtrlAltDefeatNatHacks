@@ -8,8 +8,8 @@ using MDS criteria), 10-s smartphone videos at 30 fps, MediaPipe. Per hand: tap 
 mean peak amplitude and its SD (amplitude = thumb-index distance as % of that hand's
 maximum in the video), and the drop from tap 1 to tap 5/7/10 (percentage points).
 
-The raw spreadsheet is downloaded here, not committed; only derived group statistics and
-the fitted score go into the repo (with attribution).
+The spreadsheet is in the repo at data/kasemsap_2025/ (CC BY 4.0, unchanged, with a
+README crediting the authors); if it's missing, it's downloaded from figshare.
 
 Score: L2-regularised logistic regression on the 3 self-normalised features, each taken
 from the person's WORSE hand (smaller mean amplitude, larger amplitude SD, larger
@@ -31,7 +31,15 @@ from pathlib import Path
 import numpy as np
 
 URL = 'https://ndownloader.figshare.com/files/54255155'
-OUT = Path(__file__).resolve().parent.parent / '01' / 'tapping_reference.json'
+ROOT = Path(__file__).resolve().parent.parent
+LOCAL = ROOT / 'data' / 'kasemsap_2025' / 'Parkinson_data.xlsx'
+OUT = ROOT / '01' / 'tapping_reference.json'
+
+
+def load_raw():
+    if LOCAL.exists():
+        return LOCAL.read_bytes()
+    return urllib.request.urlopen(URL, timeout=60).read()
 # worse hand per feature: (name, right column, left column, which is worse)
 SCORE_FEATURES = [('worse_mean', 'rp_mean', 'lp_mean', 'min'),
                   ('worse_std', 'rp_std', 'lp_std', 'max'),
@@ -91,7 +99,7 @@ def auc(scores, y):
 
 
 def main():
-    rows = read_xlsx(urllib.request.urlopen(URL, timeout=60).read())
+    rows = read_xlsx(load_raw())
     y = np.array([r['bradykinesia1'] for r in rows])          # 1 = Parkinson's, 0 = healthy
     n_pd, n_hc = int(y.sum()), int((y == 0).sum())
     assert (n_hc, n_pd) == (47, 53), f'unexpected group sizes {n_hc}/{n_pd}'
