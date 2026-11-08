@@ -1,4 +1,4 @@
-"""Finger-tapping analysis: a digitised MDS-UPDRS 3.4 (prototype, not scored).
+"""Finger-tapping analysis: a digitised MDS-UPDRS 3.4, scored against a published reference (tapping_reference.py).
 
 A clip is a ZIP of JPEG frames plus timestamps.csv (frame, sensor_ts_ns), sent by
 pi/pi_capture.py (Raspberry Pi camera, laptop webcam or synthetic source).
@@ -35,7 +35,8 @@ FS = 100               # Hz, analysis grid (matches the spiral pipeline)
 LOWPASS_HZ = 8.0       # keeps tapping (1-7 Hz) and drops landmark jitter
 MAX_GAP_MS = 100       # bridge detection dropouts up to this long
 MIN_DETECT = 0.90      # share of frames with a hand needed for a valid trial
-MIN_TAPS = 5
+MIN_TAPS = 3            # the published reference has Parkinson's hands with only 4 taps in 10 s:
+                        # slow tapping is the finding, so it must still get a result
 MIN_TAP_GAP_S = 0.08   # no human taps faster than ~12 Hz
 HESITATION_FACTOR = 2  # an interval > 2x the median interval counts as a hesitation
 
@@ -177,6 +178,8 @@ def tap_features(t_ms, d, fps_measured=None):
     if n < MIN_TAPS:
         warnings.append(f'Only {n} taps detected. Tap continuously, as big and fast as possible.')
         return {**base_result, 'valid': False, 'n_taps': n, 'warnings': warnings}
+    if n < 5:
+        warnings.append(f'Only {n} taps in 10 s. If you paused or stopped, record this hand again.')
 
     tap_t = grid[taps]
     amps = np.array(amps)
@@ -212,7 +215,8 @@ def kasemsap_features(t_ms, dist, fps_measured=None):
     they can be compared with that study's 47 healthy / 53 Parkinson's reference:
       amplitude = thumb-index (3-D) distance as % of its maximum in this recording,
       count  = taps in the window,  mean / std = mean and SD of the tap peak amplitudes,
-      diffN  = peak amplitude of tap 1 minus tap N (percentage points; + = shrinking)."""
+      diffN  = peak amplitude of tap 1 minus tap N (percentage points; + = shrinking);
+               with fewer than N taps, tap 1 minus 0, as in the published data."""
     t_ms = np.asarray(t_ms, float)
     dist = fill_short_gaps(t_ms, np.asarray(dist, float))
     ok = ~np.isnan(dist)
@@ -233,9 +237,10 @@ def kasemsap_features(t_ms, dist, fps_measured=None):
     out = {'count': int(len(peaks)),
            'duration_s': round(float(grid[-1] - grid[0]), 2),
            'mean': round(float(amps.mean()), 2) if len(amps) else None,
-           'std': round(float(amps.std()), 2) if len(amps) > 1 else None}
+           'std': round(float(amps.std()), 2) if len(amps) else None}
     for n in (5, 7, 10):
-        out[f'diff{n}'] = round(float(amps[0] - amps[n - 1]), 2) if len(amps) >= n else None
+        # a tap that never happened counts as size 0 (the published data's convention)
+        out[f'diff{n}'] = round(float(amps[0] - (amps[n - 1] if len(amps) >= n else 0.0)), 2) if len(amps) else None
     return out
 
 

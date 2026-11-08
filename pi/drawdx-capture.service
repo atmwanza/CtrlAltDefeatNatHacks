@@ -6,6 +6,8 @@ Wants=network-online.target
 [Service]
 User=drawdx
 WorkingDirectory=/home/drawdx/drawdx
+# Camera is taped upside-down on the laptop lid (ribbon pointing up); use 0 if mounted upright
+Environment=ROTATE=180
 ExecStart=/usr/bin/python3 /home/drawdx/drawdx/pi_capture.py
 Restart=always
 RestartSec=3
