@@ -64,9 +64,14 @@ CALIBRATED = ['p_cv', 'tremor_pct']
 def load_calibration_drawing(path):
     if path.suffix == '.json':                       # saved by /analyze (recordings/)
         d = json.loads(path.read_text())
-        return {'x': d['x'], 'y': d['y'], 'timestamp': d['t'], 'pressure': d['p']}
-    return load_spiral(path)                         # UCI-format .txt (Joel's tablet_drawings)
-
+        idx = range(len(d['x']))
+        s = d.get('s') or []
+        if len(set(s)) > 1 and len(s) == len(d['x']):   # same longest-stroke rule as /analyze
+            longest = max(set(s), key=s.count)
+            idx = [i for i, v in enumerate(s) if v == longest]
+        return {'x': [d['x'][i] for i in idx], 'y': [d['y'][i] for i in idx],
+                'timestamp': [d['t'][i] for i in idx], 'pressure': [d['p'][i] for i in idx]}
+    return load_spiral(path)                         # UCI-format .txt
 
 def build_calibration():
     factors = {}
