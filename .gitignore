@@ -222,3 +222,6 @@ __marimo__/
 # Tablet drawings: commit only the calibration set; new drawings land here as tablet_*.txt
 tablet_drawings/*
 !tablet_drawings/calibration/
+
+# every /analyze call saves the drawing here; never publish visitors' drawings
+01/recordings/

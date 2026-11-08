@@ -13,13 +13,21 @@
 # Either way the tablet still opens http://localhost:<Port>: adb forwards it, which keeps
 # the page a secure context so Chrome gives the full-rate pen data.
 #
+# Finger-tapping camera (prototype):
+#   -Pi       let the Raspberry Pi reach the backend (listens on all interfaces; run
+#             tools\setup_firewall.ps1 once as Administrator so only the hotspot and the
+#             Ethernet fallback can connect)
+#   -Webcam   use the laptop webcam instead of the Pi (fallback, and for testing)
+#
 # Needs the merged repo layout (01/, static/, templates/ side by side) and
 # `pip install -r requirements.txt` once.
 param(
     [string]$Adb = "$env:USERPROFILE\platform-tools\adb.exe",
     [int]$Port = 5000,
     [switch]$Wireless,
-    [string]$TabletIp = ""
+    [string]$TabletIp = "",
+    [switch]$Pi,
+    [switch]$Webcam
 )
 
 Set-Location $PSScriptRoot
@@ -97,8 +105,25 @@ if (-not (Test-Path $Adb)) {
     }
 }
 
+$BindHost = "127.0.0.1"
+if ($Pi) {
+    $BindHost = "0.0.0.0"
+    Write-Host "Pi mode: backend reachable from the hotspot (192.168.137.x) and Ethernet (10.42.0.x)." -ForegroundColor Green
+    Write-Host "  The Pi should appear in the Tapping tab within ~10 s of booting." -ForegroundColor Green
+}
+
+$capture = $null
+if ($Webcam) {
+    # same capture service the Pi runs, using the laptop webcam; it finds the backend on localhost
+    $env:SOURCE = "webcam"
+    $capture = Start-Process -FilePath python -ArgumentList "pi\pi_capture.py" -NoNewWindow -PassThru
+    Remove-Item Env:SOURCE
+    Write-Host "Webcam capture started (Tapping tab should show 'laptop webcam connected')." -ForegroundColor Green
+}
+
 try {
-    python -m uvicorn app:app --app-dir 01 --host 127.0.0.1 --port $Port
+    python -m uvicorn server:app --app-dir 01 --host $BindHost --port $Port
 } finally {
+    if ($capture -and -not $capture.HasExited) { Stop-Process -Id $capture.Id -Force }
     Get-Job | Stop-Job -PassThru | Remove-Job
 }
