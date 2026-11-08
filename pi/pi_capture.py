@@ -30,6 +30,7 @@ Settings (environment variables, all optional):
     JPEG_QUALITY  85
     PREVIEW_FPS   20     live preview rate (the recording always keeps every frame)
     LED_PIN       17     BCM pin for the "recording" LED (Pi only; skipped if absent)
+    ROTATE        0 | 180  180 = camera taped upside-down (ribbon pointing up); flips the image back
 """
 import io
 import json
@@ -56,6 +57,9 @@ GAIN = float(os.environ.get('GAIN', 4.0))
 JPEG_QUALITY = int(os.environ.get('JPEG_QUALITY', 85))
 PREVIEW_FPS = int(os.environ.get('PREVIEW_FPS', 20))
 LED_PIN = int(os.environ.get('LED_PIN', 17))
+ROTATE = int(os.environ.get('ROTATE', 0))
+if ROTATE not in (0, 180):
+    sys.exit(f'ROTATE must be 0 or 180, not {ROTATE}')
 SIZE = (640, 480)
 
 
@@ -84,6 +88,7 @@ class PiCameraSource:
     name = 'imx219'
 
     def __init__(self):
+        from libcamera import Transform
         from picamera2 import Picamera2
         self.cam = Picamera2()
         self.name = str(self.cam.camera_properties.get('Model', 'unknown'))
@@ -92,6 +97,7 @@ class PiCameraSource:
             sensor={'output_size': (1640, 1232), 'bit_depth': 10},   # V2 full-view binned mode
             controls={'FrameDurationLimits': (1_000_000 // FPS, 1_000_000 // FPS),
                       'AeEnable': False, 'ExposureTime': EXPOSURE_US, 'AnalogueGain': GAIN},
+            transform=Transform(hflip=1, vflip=1) if ROTATE == 180 else Transform(),
             buffer_count=6)
         self.cam.configure(config)
         self.cam.start()
@@ -328,7 +334,7 @@ def snapshot():
 
 @app.get('/health')
 def health():
-    return jsonify(ok=True, busy=busy.locked(), source=SOURCE, camera=source.name, fps_cfg=FPS,
+    return jsonify(ok=True, busy=busy.locked(), source=SOURCE, camera=source.name, fps_cfg=FPS, rotate=ROTATE,
                    fps_actual=round(camera.fps, 1), camera_error=camera.error,
                    laptop=state['laptop'], last=state['last'])
 
