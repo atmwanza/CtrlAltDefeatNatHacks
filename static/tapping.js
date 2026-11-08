@@ -11,6 +11,10 @@
   const HEALTH_MS = 2000;
   const STATUS_MS = 500;
   const STATUS_TIMEOUT_MS = 90000;
+  // Combined two-hand score: hidden after our team check (Nov 8). Healthy teammates ranged from
+  // 9 to 68, and the same person scored 19 on one try and 68 on the next, depending on how fast
+  // they chose to tap. The per-hand comparison bars stay. Set to true to bring the score back.
+  const SHOW_COMBINED_SCORE = false;
 
   const $ = id => document.getElementById(id);
   const panel = $('tapping-panel');
@@ -28,6 +32,7 @@
   const resultsEl = $('tap-results');
   const asymEl = $('tap-asymmetry');
   const scoreEl = $('tap-score');
+  const clearBtn = $('tap-clear-btn');
 
   let active = false;          // tapping view showing
   let cameraReady = false;
@@ -38,6 +43,7 @@
   let spiralResultsWereShowing = false;
   const results = { right: null, left: null };
   const sessions = { right: null, left: null };   // backend ids, for the two-hand score
+  let generation = 0;          // bumped by Clear, so a late score reply can't bring old results back
 
   // ---------- switching between the spiral and tapping tests ----------
 
@@ -144,6 +150,10 @@
     rightBtn.disabled = disabled;
     leftBtn.disabled = disabled;
     spiralTab.disabled = running;
+    if (clearBtn) {   // null if a cached old page is paired with this script: never break tapping over it
+      clearBtn.disabled = running;
+      clearBtn.classList.toggle('hidden', !(results.right || results.left));
+    }
   }
 
   function setMessage(text, kind = '') {
@@ -155,6 +165,23 @@
   // ---------- one recording: countdown -> record -> analyse -> show ----------
 
   rightBtn.addEventListener('click', () => runHand('right'));
+  if (clearBtn) clearBtn.addEventListener('click', clearResults);
+
+  // Clear both hands for the next person (like Draw Again on the spiral).
+  function clearResults() {
+    if (running) return;
+    generation++;
+    results.right = results.left = null;
+    sessions.right = sessions.left = null;
+    resultsEl.innerHTML = '';
+    scoreEl.innerHTML = '';
+    scoreEl.classList.add('hidden');
+    asymEl.classList.add('hidden');
+    setMessage('Cleared. Start with the right hand.');
+    updateButtons();
+    mainEl.scrollTop = 0;
+    window.scrollTo(0, 0);
+  }
   leftBtn.addEventListener('click', () => runHand('left'));
 
   const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -354,6 +381,15 @@
   async function updateScore() {
     const R = results.right, L = results.left;
     if (!(R && L && R.valid && L.valid)) { scoreEl.classList.add('hidden'); return; }
+    if (!SHOW_COMBINED_SCORE) {
+      scoreEl.innerHTML = `<div class="tap-score-off">
+        <strong>No single tapping score.</strong> When we tested on our own team, the same healthy person's
+        score changed a lot from one try to the next, depending on how fast they tapped. So each measure
+        below is shown against the published healthy and Parkinson's groups instead.</div>`;
+      scoreEl.classList.remove('hidden');
+      return;
+    }
+    const gen = generation;
     let s;
     try {
       const res = await fetch('/tapping/compare', {
@@ -364,10 +400,12 @@
       s = await res.json();
       if (!res.ok) throw new Error(s.detail || `Server returned ${res.status}`);
     } catch (err) {
+      if (gen !== generation) return;
       scoreEl.innerHTML = `<div class="tap-score-note">No tapping score: ${escapeHtml(err.message)}</div>`;
       scoreEl.classList.remove('hidden');
       return;
     }
+    if (gen !== generation) return;   // cleared while the score was on its way
     const band = riskBand(s.score);
     const names = { mean: 'opening size', std: 'variability', diff10: 'shrinkage' };
     const used = s.inputs.map(i => `${names[i.key]} (${i.from_hand})`).join(', ');
@@ -470,5 +508,5 @@
   updateButtons();
 
   // For testing from the browser console / DevTools: render a result without a camera.
-  window.drawdxTapping = { results, sessions, renderResults, updateScore, showTapping, showSpiral };
+  window.drawdxTapping = { results, sessions, renderResults, updateScore, showTapping, showSpiral, clearResults };
 })();

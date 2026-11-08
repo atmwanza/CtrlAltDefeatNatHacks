@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>DrawDx — Spiral Screening</title>
-<link rel="stylesheet" href="/static/style.css">
+<!-- ?v= forces tablets to fetch new code on a normal refresh; bump it after editing static/ -->
+<link rel="stylesheet" href="/static/style.css?v=20261108d">
 </head>
 <body>
 
@@ -123,6 +124,8 @@
     <div id="tap-results" class="tap-results"></div>
     <div id="tap-asymmetry" class="tap-asymmetry hidden"></div>
 
+    <button id="tap-clear-btn" class="btn btn-primary hidden">Clear and start over</button>
+
     <div class="tap-disclaimer">
       Compared with 47 healthy people and 53 people with Parkinson's (Kasemsap et al., PLOS ONE 2025; data CC BY 4.0).
       Separate from the spiral result. A screening estimate, not a diagnosis.
@@ -130,8 +133,8 @@
   </section>
 </main>
 
-<script src="/static/app.js"></script>
-<script src="/static/tapping.js"></script>
+<script src="/static/app.js?v=20261108d"></script>
+<script src="/static/tapping.js?v=20261108d"></script>
 </body>
 </html>
 

@@ -729,6 +729,8 @@ body.mode-tapping .spiral-only { display: none !important; }
 
 .tap-disclaimer { text-align: center; font-size: 12px; color: var(--text-muted); }
 
+#tap-clear-btn { width: 100%; margin-bottom: 16px; }
+
 @media (max-width: 900px) {
   .tap-grid { grid-template-columns: 1fr; }
   .tap-results { grid-template-columns: 1fr; }
@@ -802,6 +804,8 @@ body.mode-tapping .spiral-only { display: none !important; }
 .tap-score-text { font-size: 14px; line-height: 1.5; }
 .tap-score-text p { margin: 0 0 6px; }
 .tap-score-muted, .tap-score-note { color: var(--text-muted); font-size: 12px; }
+.tap-score-off { color: var(--text-muted); font-size: 14px; line-height: 1.5; }
+.tap-score-off strong { color: var(--text); }
 
 @media (max-width: 900px) {
   .tap-compare { grid-template-columns: 1fr; }
