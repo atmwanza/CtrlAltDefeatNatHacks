@@ -11,14 +11,18 @@ app = Flask(__name__)
 
 MOCK_RESPONSE = {
     "risk_score": 71,
+    "level": 4,
     "is_mock": True,  # frontend shows a visible badge when this is true, so the mock can't be mistaken for the real backend mid-demo
+    "warnings": [],
+    # Placeholder numbers in the agreed shape. dev_norm / p_cv / tremor_pct means
+    # are the real UCI ones; vel_cv and dom_freq means are made up until the
+    # backend computes them. dom_freq is lower in PD, so its pd_mean < ctrl_mean.
     "features": {
-        "dev_norm":   {"value": 0.63, "ctrl_mean": 0.41, "pd_mean": 0.63, "percentile_pd": 68},
-        "vel_cv":     {"value": 1.12, "ctrl_mean": 0.85, "pd_mean": 1.09, "percentile_pd": 55},
-        "dom_freq":   {"value": 4.3,  "ctrl_mean": 7.6,  "pd_mean": 4.4,  "percentile_pd": 72},
-        "tremor_pct": {"value": 0.11, "ctrl_mean": 0.04, "pd_mean": 0.12, "percentile_pd": 65},
-        "p_norm":     {"value": 0.61, "ctrl_mean": 0.85, "pd_mean": 0.57, "percentile_pd": 55},
-        "p_cv":       {"value": 0.38, "ctrl_mean": 0.13, "pd_mean": 0.40, "percentile_pd": 60},
+        "dev_norm":   {"value": 0.041, "ctrl_mean": 0.028, "pd_mean": 0.046, "percentile_pd": 72, "scored": True},
+        "p_cv":       {"value": 0.160, "ctrl_mean": 0.113, "pd_mean": 0.183, "percentile_pd": 67, "scored": True},
+        "tremor_pct": {"value": 0.120, "ctrl_mean": 0.084, "pd_mean": 0.177, "percentile_pd": 39, "scored": True},
+        "vel_cv":     {"value": 0.62,  "ctrl_mean": 0.50,  "pd_mean": 0.70,  "percentile_pd": 60, "scored": True},
+        "dom_freq":   {"value": 5.2,   "ctrl_mean": 7.6,   "pd_mean": 4.4,   "percentile_pd": 75, "scored": False},
     },
     "interpretation": (
         "This drawing shows elevated spiral deviation, reduced pen pressure, and tremor activity "
@@ -61,6 +65,11 @@ def analyze():
 
     response = dict(MOCK_RESPONSE)
     response["risk_score"] = min(95, max(5, round(raw)))
+    response["level"] = sum(response["risk_score"] >= c for c in (10, 30, 50, 70, 90))
+    response["warnings"] = (
+        ["Drawn with a mouse: pressure is a fixed 0.5, so pressure features are not meaningful."]
+        if data.get("pointer_type") == "mouse" else []
+    )
     return jsonify(response)
 
 

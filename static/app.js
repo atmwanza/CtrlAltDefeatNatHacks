@@ -13,6 +13,7 @@ const drawAgainBtn = document.getElementById('draw-again-btn');
 const beginDrawingBtn = document.getElementById('begin-drawing-btn');
 const instructionsOverlay = document.getElementById('instructions-overlay');
 const resultsPanel = document.getElementById('results-panel');
+const drawWarning = document.getElementById('draw-warning');
 
 const mainEl = document.querySelector('main');
 const MIN_POINTS_TO_ANALYZE = 150;
@@ -25,6 +26,8 @@ let activePenPointerId = null;
 let spiralGeometry = null; // {cx, cy, b} set by drawSpiralTemplate(), reused by the heatmap
 let lastInputLabel = 'S Pen';
 let lastPointerType = 'pen'; // what actually gets reported to the backend — never hardcode this in the payload
+let demoRunning = false;  // true while a demo recording is animating onto the canvas
+let replayToken = 0;      // bumped on every reset; a replay stops once its token is stale
 
 // ---------- device mode (Android S Pen vs iPad Apple Pencil) ----------
 
@@ -79,10 +82,28 @@ document.addEventListener('touchmove', (e) => {
 const RISK_BAND_LOW_MAX = 34;
 const RISK_BAND_MOD_MAX = 67;
 
+// Match the UCI static spiral test the reference data was recorded on: ~3
+// turns, clockwise from the center. The backend's deviation feature scores a
+// perfectly drawn 2-turn spiral worse than the average healthy UCI subject
+// (fewer turns biases its center estimate), so a 2-turn template made healthy
+// people look PD-like before they'd drawn anything wrong.
+const SPIRAL_TURNS = 3;
+function spiralAngle(theta) {
+  return -theta - Math.PI / 2; // starts pointing up, winds clockwise like the UCI files
+}
+
 // ---------- canvas setup ----------
+
+// Canvas size the drawing was made on. Read from here at submit time: once
+// results are showing the canvas is hidden and measures 0x0, and the backend
+// scales coordinates by this size (a 0 size blew coordinates up ~580x).
+let drawingCanvasSize = { width: 0, height: 0 };
 
 function initCanvas() {
   const rect = canvas.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0) {
+    drawingCanvasSize = { width: rect.width, height: rect.height };
+  }
   const dpr = window.devicePixelRatio || 1;
   canvas.width = rect.width * dpr;
   canvas.height = rect.height * dpr;
@@ -103,19 +124,19 @@ function drawSpiralTemplate() {
   const w = rect.width, h = rect.height;
   const cx = w / 2, cy = h / 2;
   const maxR = Math.min(w, h) * 0.42;
-  const turns = 3;
-  const thetaMax = turns * 2 * Math.PI;
+  const thetaMax = SPIRAL_TURNS * 2 * Math.PI;
   const b = maxR / thetaMax;
   spiralGeometry = { cx, cy, b };
 
   ctx.save();
-  ctx.strokeStyle = '#e0e3ef';
-  ctx.lineWidth = 1.5;
+  // Medium slate: the old #e0e3ef was ~1.3:1 contrast on white, too faint for older eyes
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 2;
   ctx.beginPath();
   for (let theta = 0; theta <= thetaMax; theta += 0.05) {
     const r = b * theta;
-    const x = cx + r * Math.cos(theta - Math.PI / 2);
-    const y = cy + r * Math.sin(theta - Math.PI / 2);
+    const x = cx + r * Math.cos(spiralAngle(theta));
+    const y = cy + r * Math.sin(spiralAngle(theta));
     if (theta === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
   }
   ctx.stroke();
@@ -131,8 +152,8 @@ function drawSpiralTemplate() {
   ctx.globalAlpha = 1;
 
   // finish zone: green ring at outer endpoint
-  const endX = cx + maxR * Math.cos(thetaMax - Math.PI / 2);
-  const endY = cy + maxR * Math.sin(thetaMax - Math.PI / 2);
+  const endX = cx + maxR * Math.cos(spiralAngle(thetaMax));
+  const endY = cy + maxR * Math.sin(spiralAngle(thetaMax));
   ctx.strokeStyle = '#2e7d52';
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -171,11 +192,13 @@ canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 canvas.addEventListener('pointerdown', (e) => {
   if (e.pointerType === 'touch') return; // reject palm; 'pen' and 'mouse' (laptop testing) are allowed
+  if (demoRunning) return; // don't mix live ink into a demo replay
   canvas.setPointerCapture(e.pointerId);
   activePenPointerId = e.pointerId;
   lastPointerType = e.pointerType;
   lastInputLabel = e.pointerType === 'pen' ? penLabel() : 'Mouse';
   isDrawing = true;
+  hideDrawWarning();
   addPoint(e);
   dismissOverlayIfNeeded();
 });
@@ -205,6 +228,7 @@ canvas.addEventListener('pointercancel', (e) => {
   if (e.pointerType !== 'pen') return;
   if (e.pointerId !== activePenPointerId) return;
   isDrawing = false;
+  strokeIndex += 1; // a cancelled contact is still a pen lift; reusing its s would join two contacts into one stroke
   showLiftedTelemetry();
 });
 
@@ -262,7 +286,10 @@ function updateTelemetry() {
 }
 
 function maybeEnableAnalyze() {
-  analyzeBtn.disabled = points.length < MIN_POINTS_TO_ANALYZE;
+  // Off while results are showing: re-tapping would re-send the same drawing as a new result.
+  // Also off during a demo replay, which submits itself when it finishes.
+  const resultsShowing = !resultsPanel.classList.contains('hidden');
+  analyzeBtn.disabled = resultsShowing || demoRunning || points.length < MIN_POINTS_TO_ANALYZE;
 }
 
 function showLiftedTelemetry() {
@@ -281,10 +308,13 @@ function showLiftedTelemetry() {
 clearBtn.addEventListener('click', resetCanvasState);
 
 function resetCanvasState() {
+  replayToken += 1; // stops any demo replay still animating
+  demoRunning = false;
   points = [];
   strokeIndex = 0;
   isDrawing = false;
   activePenPointerId = null;
+  hideDrawWarning();
   analyzeBtn.disabled = true;
   telemetryStrip.textContent = `Waiting for ${penLabel()}…`;
   telemetryStrip.classList.remove('telemetry-warning');
@@ -309,22 +339,67 @@ drawAgainBtn.addEventListener('click', () => {
 
 // ---------- submit + analyze ----------
 
-analyzeBtn.addEventListener('click', () => submitDrawing('live'));
+analyzeBtn.addEventListener('click', () => {
+  const problem = drawingProblem();
+  if (problem) {
+    showDrawWarning(problem);
+    return;
+  }
+  submitDrawing('live');
+});
+
+// The reference data (UCI static spiral test) was drawn over 14-48 s at firm
+// pressure. On the tablet, drawings under ~10 s or at very light pressure
+// produced healthy people's highest scores (calibration set: a 13%-pressure
+// drawing still scored 100 after calibration), so those get redrawn instead
+// of scored.
+const MIN_DRAW_SECONDS = 10;
+const MIN_MEDIAN_PRESSURE = 0.30;
+
+function drawingProblem() {
+  const counts = {};
+  points.forEach(p => { counts[p.s] = (counts[p.s] || 0) + 1; });
+  const longest = Number(Object.keys(counts).reduce((a, b) => (counts[a] >= counts[b] ? a : b)));
+  const stroke = points.filter(p => p.s === longest);
+  const seconds = (stroke[stroke.length - 1].t - stroke[0].t) / 1000;
+  if (seconds < MIN_DRAW_SECONDS) {
+    return `That took ${seconds.toFixed(0)} seconds. Tap Clear and redraw more slowly, at a steady pace for about 15–30 seconds.`;
+  }
+  if (lastPointerType === 'pen') {
+    const sorted = stroke.map(p => p.p).sort((a, b) => a - b);
+    const median = sorted[Math.floor(sorted.length / 2)];
+    if (median < MIN_MEDIAN_PRESSURE) {
+      return `The pen pressure was very light (${Math.round(median * 100)}%). Tap Clear and redraw, pressing firmly from the very start, as if writing with a pen.`;
+    }
+  }
+  return null;
+}
+
+function showDrawWarning(text) {
+  drawWarning.textContent = text;
+  drawWarning.classList.remove('hidden');
+}
+
+function hideDrawWarning() {
+  drawWarning.classList.add('hidden');
+}
 
 async function submitDrawing(source) {
-  const rect = canvas.getBoundingClientRect();
   const payload = {
     x: points.map(p => p.x),
     y: points.map(p => p.y),
     t: points.map(p => p.t),
     p: points.map(p => p.p),
     s: points.map(p => p.s),
-    canvas_width: rect.width,
-    canvas_height: rect.height,
+    canvas_width: drawingCanvasSize.width,
+    canvas_height: drawingCanvasSize.height,
     device_pixel_ratio: window.devicePixelRatio || 1,
     pointer_type: lastPointerType, // real captured type — never hardcode; mouse data has no real pressure signal
     num_strokes: new Set(points.map(p => p.s)).size,
-    device_platform: currentPlatform()
+    // The backend picks its tablet calibration by this and saves every drawing under
+    // it. Demo spirals are synthetic, so they must never be calibrated or end up in
+    // a calibration set.
+    device_platform: source === 'live' ? currentPlatform() : 'demo',
   };
 
   analyzeBtn.disabled = true;
@@ -342,7 +417,7 @@ async function submitDrawing(source) {
     alert(`Analysis failed: ${err.message}`);
   } finally {
     analyzeBtn.textContent = 'Analyze Spiral';
-    analyzeBtn.disabled = points.length < MIN_POINTS_TO_ANALYZE || !resultsPanel.classList.contains('hidden');
+    maybeEnableAnalyze();
   }
 }
 
@@ -350,12 +425,12 @@ async function submitDrawing(source) {
 
 function riskBand(score) {
   if (score < RISK_BAND_LOW_MAX) {
-    return { cls: 'band-low', label: 'Within normal reference range' };
+    return { cls: 'band-low', label: 'Within typical range' };
   }
   if (score < RISK_BAND_MOD_MAX) {
-    return { cls: 'band-moderate', label: 'Borderline kinematic deviation' };
+    return { cls: 'band-moderate', label: 'Borderline: consider a retest' };
   }
-  return { cls: 'band-high', label: 'Elevated kinematic deviation' };
+  return { cls: 'band-high', label: 'Elevated: consider a clinical review' };
 }
 
 function pctBand(pct) {
@@ -382,19 +457,49 @@ function displayResults(data) {
   grid.innerHTML = '';
   for (const [key, f] of Object.entries(data.features)) {
     const card = document.createElement('div');
-    const band2 = pctBand(f.percentile_pd);
+    const band2 = f.scored === false ? 'pct-unscored' : pctBand(f.percentile_pd);
     card.className = `feature-card ${band2}`;
-    const pinLeft = Math.min(96, Math.max(4, f.percentile_pd));
+    const pinLeft = gaugePosition(f);
+    const fmt = v => escapeHtml(formatFeatureValue(key, v));
+    const tag = f.scored === false ? '<span class="feature-tag">not in score</span>' : '';
     card.innerHTML = `
-      <div class="feature-name">${featureLabel(key)}</div>
-      <div class="feature-value">${f.value}</div>
-      <div class="gauge-track"><div class="gauge-pin" style="left:${pinLeft}%"></div></div>
-      <div class="feature-refs"><span>ctrl ${f.ctrl_mean}</span><span>PD ${f.pd_mean}</span></div>
+      <div class="feature-name">${escapeHtml(featureLabel(key))}${tag}</div>
+      <div class="feature-sub">${escapeHtml(featureDescription(key))}</div>
+      <div class="feature-value">${fmt(f.value)}</div>
+      <div class="gauge-track">
+        <div class="gauge-tick" style="left:${GAUGE_HEALTHY}%"></div>
+        <div class="gauge-tick" style="left:${GAUGE_PD}%"></div>
+        <div class="gauge-pin" style="left:${pinLeft}%"></div>
+      </div>
+      <div class="feature-refs">
+        <span style="left:${GAUGE_HEALTHY}%">Healthy avg ${fmt(f.ctrl_mean)}</span>
+        <span style="left:${GAUGE_PD}%">PD avg ${fmt(f.pd_mean)}</span>
+      </div>
     `;
     grid.appendChild(card);
   }
 
-  document.getElementById('interpretation-block').textContent = data.interpretation || '';
+  const warningsBlock = document.getElementById('warnings-block');
+  const warnings = Array.isArray(data.warnings) ? data.warnings : [];
+  warningsBlock.replaceChildren(...warnings.map(w => {
+    const li = document.createElement('li');
+    li.textContent = w;
+    return li;
+  }));
+  warningsBlock.classList.toggle('hidden', warnings.length === 0);
+
+  // The backend also appends the warnings to the interpretation (" Note: <w1> <w2>"); they
+  // already have their own list above, so drop that exact suffix rather than show them twice.
+  let interpretation = data.interpretation || '';
+  const noteSuffix = ' Note: ' + warnings.join(' ');
+  if (warnings.length && interpretation.endsWith(noteSuffix)) {
+    interpretation = interpretation.slice(0, -noteSuffix.length);
+  }
+  // Say what it was compared against, so the cohort size answers the first judge question.
+  const tablet = { android: 'Galaxy Tab', ios: 'iPad' }[data.calibrated_for];
+  const method = "Reference: 76 clinical recordings (15 healthy, 61 with Parkinson's)"
+    + (tablet ? `, with a correction for how the ${tablet} reads pen input.` : '.');
+  document.getElementById('interpretation-block').textContent = `${interpretation} ${method}`.trim();
   document.getElementById('disclaimer-block').textContent =
     data.disclaimer || 'Screening tool only. Not a clinical diagnosis.';
 
@@ -403,30 +508,100 @@ function displayResults(data) {
     mockBadge.textContent = 'MOCK DATA';
     mockBadge.classList.remove('badge-live');
     mockBadge.classList.remove('hidden');
-  } else if (data.backend_label) {
-    mockBadge.textContent = data.backend_label;
+  } else {
+    mockBadge.textContent = 'LIVE · UCI reference (n=76)' + (tablet ? ' · tablet-calibrated' : '');
     mockBadge.classList.add('badge-live');
     mockBadge.classList.remove('hidden');
-  } else {
-    mockBadge.classList.add('hidden');
   }
 
-  drawTremorHeatmap();
+  drawSteadinessHeatmap();
+}
+
+// Feature bars: healthy average at 20%, Parkinson's average at 80%. Works for features
+// where Parkinson's is lower too (dominant frequency): left is always healthy-like.
+const GAUGE_HEALTHY = 20;
+const GAUGE_PD = 80;
+
+function gaugePosition(f) {
+  const v = Number(f.value), h = Number(f.ctrl_mean), p = Number(f.pd_mean);
+  if (![v, h, p].every(Number.isFinite) || p === h) return 50;
+  const pos = GAUGE_HEALTHY + (GAUGE_PD - GAUGE_HEALTHY) * (v - h) / (p - h);
+  return Math.min(97, Math.max(3, pos));
+}
+
+function featureDescription(key) {
+  const text = {
+    dev_norm: 'How far the line strayed from a smooth spiral',
+    tremor_pct: 'Share of movement in the 4–6 Hz Parkinson\'s tremor rhythm',
+    vel_cv: 'How much the pen speed varied',
+    p_cv: 'How much the pen pressure varied',
+    dom_freq: 'Main rhythm of the hand\'s shake',
+  };
+  return text[key] || '';
 }
 
 function featureLabel(key) {
   const labels = {
     dev_norm: 'Spiral Deviation',
-    vel_cv: 'Velocity Variability',
+    vel_cv: 'Speed Variability',
     dom_freq: 'Dominant Frequency',
     tremor_pct: 'Tremor Share',
-    p_norm: 'Pressure Level',
     p_cv: 'Pressure Variability',
   };
   return labels[key] || key;
 }
 
-function drawTremorHeatmap() {
+// Ratios as percentages with one decimal (no false precision), frequency in Hz.
+function formatFeatureValue(key, value) {
+  const v = Number(value);
+  if (!Number.isFinite(v)) return String(value ?? '');
+  return key === 'dom_freq' ? `${v.toFixed(1)} Hz` : `${(v * 100).toFixed(1)}%`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, ch => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+  ));
+}
+
+// Results picture: the drawing over the faint template, each segment coloured by how much
+// the line wobbled around its own smoothed path (deviation from a ±125 ms moving average,
+// as a share of the drawing's size). Thresholds are absolute, not per-drawing percentiles,
+// so a steady drawing stays green. Measured on real drawings: healthy UCI controls, the team
+// and guests on both tablets keep 93-99% of points under 0.5%; Parkinson's recordings
+// with tremor go well past it (top 1% of UCI Parkinson's points: 2.7%).
+const WOBBLE_HALF_WINDOW_MS = 125;
+const WOBBLE_SOME = 0.005;
+const WOBBLE_STRONG = 0.01;
+
+function wobbleByPoint() {
+  const xs = points.map(p => p.x), ys = points.map(p => p.y);
+  const size = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 1);
+  const out = new Array(points.length).fill(0);
+  let start = 0;
+  while (start < points.length) {               // one stroke at a time
+    let end = start;
+    while (end + 1 < points.length && points[end + 1].s === points[start].s) end++;
+    const cx = [0], cy = [0];                   // prefix sums for O(1) window means
+    for (let i = start; i <= end; i++) {
+      cx.push(cx[cx.length - 1] + points[i].x);
+      cy.push(cy[cy.length - 1] + points[i].y);
+    }
+    let lo = start, hi = start;
+    for (let i = start; i <= end; i++) {
+      while (points[lo].t < points[i].t - WOBBLE_HALF_WINDOW_MS) lo++;
+      while (hi + 1 <= end && points[hi + 1].t <= points[i].t + WOBBLE_HALF_WINDOW_MS) hi++;
+      const n = hi - lo + 1;
+      const mx = (cx[hi - start + 1] - cx[lo - start]) / n;
+      const my = (cy[hi - start + 1] - cy[lo - start]) / n;
+      out[i] = Math.hypot(points[i].x - mx, points[i].y - my) / size;
+    }
+    start = end + 1;
+  }
+  return out;
+}
+
+function drawSteadinessHeatmap() {
   const hm = document.getElementById('heatmap-canvas');
   const hctx = hm.getContext('2d');
   const rect = hm.getBoundingClientRect();
@@ -438,33 +613,43 @@ function drawTremorHeatmap() {
 
   if (points.length < 2) return;
 
+  // Fit both the drawing and the template into the box, with the same transform.
+  const g = spiralGeometry;
+  const thetaMax = SPIRAL_TURNS * 2 * Math.PI;
+  const templateR = g ? g.b * thetaMax : 0;
   const xs = points.map(p => p.x), ys = points.map(p => p.y);
-  const minX = Math.min(...xs), maxX = Math.max(...xs);
-  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  let minX = Math.min(...xs), maxX = Math.max(...xs);
+  let minY = Math.min(...ys), maxY = Math.max(...ys);
+  if (g) {
+    minX = Math.min(minX, g.cx - templateR); maxX = Math.max(maxX, g.cx + templateR);
+    minY = Math.min(minY, g.cy - templateR); maxY = Math.max(maxY, g.cy + templateR);
+  }
   const spanX = Math.max(maxX - minX, 1), spanY = Math.max(maxY - minY, 1);
   const scale = Math.min((rect.width - 20) / spanX, (rect.height - 20) / spanY);
   const offX = (rect.width - spanX * scale) / 2 - minX * scale;
   const offY = (rect.height - spanY * scale) / 2 - minY * scale;
 
-  const velocities = [];
-  for (let i = 1; i < points.length; i++) {
-    const a = points[i - 1], b = points[i];
-    if (a.s !== b.s) { velocities.push(0); continue; }
-    const dt = Math.max(b.t - a.t, 1);
-    velocities.push(Math.hypot(b.x - a.x, b.y - a.y) / dt);
+  if (g) {
+    hctx.strokeStyle = '#c3cad9';
+    hctx.lineWidth = 1.5;
+    hctx.beginPath();
+    for (let theta = 0; theta <= thetaMax; theta += 0.05) {
+      const r = g.b * theta;
+      const x = (g.cx + r * Math.cos(spiralAngle(theta))) * scale + offX;
+      const y = (g.cy + r * Math.sin(spiralAngle(theta))) * scale + offY;
+      if (theta === 0) hctx.moveTo(x, y); else hctx.lineTo(x, y);
+    }
+    hctx.stroke();
   }
-  const sorted = [...velocities].sort((a, b) => a - b);
-  const p5 = sorted[Math.floor(sorted.length * 0.05)] || 0;
-  const p95 = sorted[Math.floor(sorted.length * 0.95)] || 1;
-  const range = Math.max(p95 - p5, 1e-6);
 
+  const wobble = wobbleByPoint();
   hctx.lineWidth = 2.4;
   hctx.lineCap = 'round';
   for (let i = 1; i < points.length; i++) {
     const a = points[i - 1], b = points[i];
     if (a.s !== b.s) continue;
-    const norm = Math.min(1, Math.max(0, (velocities[i - 1] - p5) / range));
-    hctx.strokeStyle = norm < 0.33 ? '#2e7d52' : norm < 0.67 ? '#b07a1a' : '#c0392b';
+    const w = Math.max(wobble[i - 1], wobble[i]);
+    hctx.strokeStyle = w < WOBBLE_SOME ? '#2e7d52' : w < WOBBLE_STRONG ? '#b07a1a' : '#c0392b';
     hctx.beginPath();
     hctx.moveTo(a.x * scale + offX, a.y * scale + offY);
     hctx.lineTo(b.x * scale + offX, b.y * scale + offY);
@@ -474,90 +659,116 @@ function drawTremorHeatmap() {
 
 // ---------- demo presets ----------
 
-demoHealthyBtn.addEventListener('click', () => loadDemo('control'));
+// The demo buttons replay real recordings from the UCI reference dataset: a
+// typical healthy control (C_0006, score 4) and a person with Parkinson's
+// (H_P000-0003, score 77) whose score sits near the group's median (80) and who
+// shows a classic 4.6 Hz tremor, so the steadiness picture has something real to
+// show (scores with each person left out of the reference). Both run 17-19 s,
+// inside the drawing-time guidance. They're sent as device_platform "demo", so no tablet calibration
+// is applied — they were recorded on the UCI tablet, not this one.
+demoHealthyBtn.addEventListener('click', () => loadDemo('healthy'));
 demoPdBtn.addEventListener('click', () => loadDemo('pd'));
 
-function loadDemo(kind) {
+const DEMO_LABELS = { healthy: 'Real recording · healthy', pd: "Real recording · Parkinson's" };
+let demoRecordings = null;
+
+async function loadDemo(kind) {
   dismissOverlayIfNeeded();
   showDrawingView();
   initCanvas();
   resetCanvasState();
-  lastInputLabel = 'Demo';
-  lastPointerType = 'pen'; // synthetic data is generated to be pen-like (full pressure range), so report it as such
+  lastInputLabel = DEMO_LABELS[kind];
+  lastPointerType = 'pen';
+  // Tapping a demo again, Clear or Draw Again resets the canvas, which bumps the token
+  // and stops this replay, so two replays never draw into the same points[].
+  const myToken = replayToken;
+  demoRunning = true;
+  maybeEnableAnalyze();
 
-  const synthetic = generateSyntheticSpiral(kind);
+  try {
+    demoRecordings = demoRecordings || await fetch('/static/demo_recordings.json').then(r => r.json());
+  } catch (err) {
+    if (myToken === replayToken) demoRunning = false;
+    alert(`Could not load the demo recording: ${err.message}`);
+    return;
+  }
+  if (myToken !== replayToken) return;
+  const replay = fitRecordingToCanvas(demoRecordings[kind]);
   let i = 0;
-  const pointsPerFrame = 25;
+  const pointsPerFrame = 40; // ~1-2 s of animation for a 20-30 s recording
 
   function step() {
-    const end = Math.min(i + pointsPerFrame, synthetic.length);
+    if (myToken !== replayToken) return;
+    const end = Math.min(i + pointsPerFrame, replay.length);
     for (; i < end; i++) {
-      points.push(synthetic[i]);
-      paintSegment(synthetic[i]);
+      points.push(replay[i]);
+      paintSegment(replay[i]);
     }
     updateTelemetry();
     maybeEnableAnalyze();
-    if (i < synthetic.length) {
+    if (i < replay.length) {
       requestAnimationFrame(step);
     } else {
       strokeIndex = 1;
+      demoRunning = false;
       submitDrawing(kind);
     }
   }
   requestAnimationFrame(step);
 }
 
-function generateSyntheticSpiral(kind) {
+// Place a recording on the on-screen template: its start point on START, its
+// outer radius at the template's, and its end rotated onto FINISH. Translation,
+// uniform scaling and rotation don't change any of the features (all are
+// size- and orientation-independent), so the score is the recording's own.
+function fitRecordingToCanvas(rec) {
   const rect = canvas.getBoundingClientRect();
   const cx = rect.width / 2, cy = rect.height / 2;
   const maxR = Math.min(rect.width, rect.height) * 0.42;
-  const turns = 3;
-  const thetaMax = turns * 2 * Math.PI;
-  const b = maxR / thetaMax;
 
-  const isPd = kind === 'pd';
-  const durationMs = isPd ? 9000 : 6000;
-  const hz = 200;
-  const n = Math.round((durationMs / 1000) * hz);
-  // Hz here means oscillations per second of WALL-CLOCK TIME, matching what a
-  // real backend's FFT measures — phase must be driven by tSec, not by spiral
-  // angle, or the "4-6Hz tremor" ends up at a fraction of a Hz once drawn out
-  // over several seconds (caught in review: theta-driven phase is dimensionally
-  // wrong for a temporal frequency target).
-  const tremorHz = isPd ? 4.3 + Math.random() * 1.5 : 8 + Math.random() * 2;
-  const tremorAmpPx = isPd ? maxR * 0.028 : maxR * 0.004;
-  const tremorAxis = Math.PI / 3.3; // fixed direction, not purely radial — radial-only wobble draws a symmetric gear/flower, not a hand tremor
-  const pressureMean = isPd ? 0.58 : 0.84;
-  const pressureAmp = isPd ? 0.33 : 0.15; // sized so std/mean lands near the target p_cv (0.40 / 0.13)
+  const x0 = rec.x[0], y0 = rec.y[0];
+  const n = rec.x.length;
+  let recMaxR = 0;
+  for (let i = 0; i < n; i++) recMaxR = Math.max(recMaxR, Math.hypot(rec.x[i] - x0, rec.y[i] - y0));
+  const scale = maxR / recMaxR;
+  const endAngle = Math.atan2(rec.y[n - 1] - y0, rec.x[n - 1] - x0);
+  const rot = spiralAngle(SPIRAL_TURNS * 2 * Math.PI) - endAngle;
+  const cosR = Math.cos(rot), sinR = Math.sin(rot);
 
+  const tStart = performance.now();
   const out = [];
-  let t = performance.now();
   for (let i = 0; i < n; i++) {
-    const tSec = i / hz;
-    const frac = i / (n - 1);
-    const theta = thetaMax * frac;
-    const phase = 2 * Math.PI * tremorHz * tSec;
-    const wobble = Math.sin(phase);
-
-    const idealR = b * theta;
-    const idealX = cx + idealR * Math.cos(theta - Math.PI / 2);
-    const idealY = cy + idealR * Math.sin(theta - Math.PI / 2);
-    const x = idealX + tremorAmpPx * wobble * Math.cos(tremorAxis);
-    const y = idealY + tremorAmpPx * wobble * Math.sin(tremorAxis);
-
-    // Pressure rides the same tremor phase instead of independent per-sample
-    // noise — a hand can't modulate grip at 200Hz, so white noise there looked
-    // like fuzz rather than a 4-6Hz pulse.
-    const p = Math.min(1, Math.max(0.05, pressureMean + pressureAmp * Math.sin(phase + 0.6)));
-    out.push({ x, y, t, p, s: 0 });
-    t += 1000 / hz;
+    const dx = (rec.x[i] - x0) * scale, dy = (rec.y[i] - y0) * scale;
+    out.push({
+      x: cx + dx * cosR - dy * sinR,
+      y: cy + dx * sinR + dy * cosR,
+      t: tStart + rec.t[i],
+      p: Math.min(1, Math.max(0, rec.p[i] / 1023)),
+      s: 0,
+    });
   }
   return out;
 }
 
 // ---------- boot ----------
 
-beginDrawingBtn.addEventListener('click', () => instructionsOverlay.classList.add('hidden'));
+beginDrawingBtn.addEventListener('click', () => {
+  instructionsOverlay.classList.add('hidden');
+  enterFullscreen();
+});
+
+// Hide the browser bars and the Android dock while drawing: more canvas, and a resting
+// hand can't hit Home/Back. Needs a tap (this button), and some browsers refuse it, so
+// failure is ignored. The ResizeObserver below re-fits the canvas when the size changes.
+function enterFullscreen() {
+  const el = document.documentElement;
+  if (document.fullscreenElement || document.webkitFullscreenElement) return;
+  try {
+    const request = el.requestFullscreen || el.webkitRequestFullscreen;
+    const result = request && request.call(el);
+    if (result && typeof result.catch === 'function') result.catch(() => {});
+  } catch (_) { /* fullscreen not allowed here */ }
+}
 
 // Resize the canvas whenever its box actually changes size (rotation, Safari toolbar).
 // ResizeObserver fires after layout, unlike 'resize' on iOS Safari, which can fire
