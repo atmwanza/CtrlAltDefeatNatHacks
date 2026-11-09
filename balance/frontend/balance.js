@@ -1,4 +1,4 @@
-// DrawDx balance study: tablet side. A PLANNED STUDY, NOT A TEST: the tab shows the study plan;
+// PRISM balance study: tablet side. A PLANNED STUDY, NOT A TEST: the tab shows the study plan;
 // the working recorder (pilot) sits in a closed drawer and only turns the camera on when opened.
 // Nobody gets a health result.
 // Protocol from the published Parkinson's balance dataset (de Oliveira et al. 2022): quiet

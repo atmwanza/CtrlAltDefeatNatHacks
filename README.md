@@ -1,6 +1,8 @@
-# DrawDx
+<p align="center"><img src="static/prism-logo.png" alt="PRISM: Parkinson's Research through Interactive Screening of Movement" width="460"></p>
 
-DrawDx is a low-cost screening prototype for Parkinson's disease. It has two short tests: a person draws a spiral with a stylus, and taps their fingers in front of a small camera. Each test is compared with published data from people with and without Parkinson's.
+# PRISM
+
+PRISM (Parkinson's Research through Interactive Screening of Movement) is a low-cost screening prototype for Parkinson's disease. It has two short tests: a person draws a spiral with a stylus, and taps their fingers in front of a small camera. Each test is compared with published data from people with and without Parkinson's.
 
 Built at **natHacks 2026** (Healthcare & Accessibility track) by team **Ctrl Alt Delete**.
 
@@ -18,7 +20,7 @@ Built at **natHacks 2026** (Healthcare & Accessibility track) by team **Ctrl Alt
 ### How the scores work
 - **Spiral (0–100).** Each of the four features is compared with the healthy and Parkinson's groups in the UCI data, and the evidence is combined into a probability that the drawing looks Parkinson's-like. A tremor frequency is shown but not scored. A tablet reads some features differently from the Wacom display the UCI data was recorded on, so pen input is calibrated using drawings from healthy team members on the same device (`01/calibration/`).
 - **Finger tapping (0–100).** Logistic regression on each hand's tap count, mean tap size, tap-size variation and tap 1→10 drop, fitted on the Kasemsap data. The person's result is their **worse hand**. Bands come from the healthy group's held-out scores: **under 50 typical, 50–74 borderline, 75 or more elevated**. The features are computed the same way as in the paper (MediaPipe hand tracking, thumb-to-index distance as % of maximum).
-- **Severity band.** A port of Islam et al.'s own feature code (wrist angle, first 10 taps), with a logistic regression on tapping speed variation and tap size. In their data these features track severity but **do not separate Parkinson's from controls**, so DrawDx shows a band, never a diagnosis.
+- **Severity band.** A port of Islam et al.'s own feature code (wrist angle, first 10 taps), with a logistic regression on tapping speed variation and tap size. In their data these features track severity but **do not separate Parkinson's from controls**, so PRISM shows a band, never a diagnosis.
 
 More detail: [`data/kasemsap_2025/README.md`](data/kasemsap_2025/README.md), [`data/islam_2023/README.md`](data/islam_2023/README.md), [`contract.json`](contract.json) (the spiral API and tablet calibration).
 

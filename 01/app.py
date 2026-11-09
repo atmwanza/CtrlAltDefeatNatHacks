@@ -27,7 +27,7 @@ FEATURE_TEXT = {
     'dom_freq': 'a tremor frequency in the Parkinsonian range',
 }
 
-app = FastAPI(title="DrawDx backend")
+app = FastAPI(title="PRISM backend")
 app.mount("/static", StaticFiles(directory=FRONTEND / "static"), name="static")
 
 

@@ -1,4 +1,4 @@
-"""balance_api.py - balance study routes for the DrawDx site (data collection, not a test).
+"""balance_api.py - balance study routes for the PRISM site (data collection, not a test).
 
 The Balance tab collects our own balance data; it gives nobody a health result. The protocol
 follows the published Parkinson's balance dataset (de Oliveira et al., Front Neurosci 2022,

@@ -1,4 +1,4 @@
-# One-time: allow the Raspberry Pi to reach the DrawDx backend on this laptop.
+# One-time: allow the Raspberry Pi to reach the PRISM backend on this laptop.
 # Run in PowerShell **as Administrator**:
 #     powershell -ExecutionPolicy Bypass -File tools\setup_firewall.ps1
 #

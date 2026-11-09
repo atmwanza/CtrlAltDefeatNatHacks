@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""DrawDx finger-tapping capture service.
+"""PRISM finger-tapping capture service.
 
 Runs on the Raspberry Pi (camera module), or on the laptop as the webcam fallback, or
 with a synthetic source for testing the plumbing. It streams a live preview, records a

@@ -952,7 +952,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible, select:focus-visib
 
 /* ---------- PRISM logo: second row of the top bar, left of the spiral buttons ---------- */
 /* The PNG has white margins; these numbers crop to the logo itself (1680 x 428 px of 1903 x 729). */
-.topbar-logo {
+.topbar-logo, .overlay-logo {
   --logo-h: 44px;
   flex: 0 0 auto;
   width: calc(var(--logo-h) * 1680 / 428);
@@ -961,3 +961,7 @@ button:focus-visible, a:focus-visible, summary:focus-visible, select:focus-visib
   background-size: calc(var(--logo-h) * 1903 / 428) auto;
   background-position: calc(var(--logo-h) * -80 / 428) calc(var(--logo-h) * -200 / 428);
 }
+
+/* start screen: the PRISM logo in place of the old "DrawDx" heading */
+.overlay-title { margin: 0 0 4px; line-height: 0; }
+.overlay-logo { --logo-h: 60px; display: block; }
