@@ -232,18 +232,6 @@ main {
   line-height: 1.4;
 }
 
-/* The plain-language band leads; the 0-100 number is secondary (avoids false precision) */
-#risk-band-label {
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-weight: 700;
-  font-size: 18px;
-  line-height: 1.25;
-}
-
-#risk-band-label.band-low { background: #e5f3eb; }
-#risk-band-label.band-moderate { background: #fbf0dc; }
-#risk-band-label.band-high { background: #f9e3e0; }
 
 .risk-number-wrap {
   margin-top: 12px;
@@ -836,13 +824,6 @@ body { font-variant-numeric: tabular-nums; }
 .pct-unscored .gauge-track::before { display: none; }
 @keyframes pin-in { from { left: 50%; opacity: 0; } }
 
-/* bands carry a shape too, not just a colour */
-#risk-band-label::before, .verdict-band::before, .tap-score-band::before { margin-right: 6px; }
-#risk-band-label.band-low::before, .verdict-band.band-low::before, .tap-score-band.band-low::before { content: '\2713'; }
-#risk-band-label.band-moderate::before, .verdict-band.band-moderate::before, .tap-score-band.band-moderate::before { content: '\25B2'; }
-#risk-band-label.band-high::before, .verdict-band.band-high::before, .tap-score-band.band-high::before { content: '\25C6'; }
-#risk-band-label.band-moderate, .verdict-band.band-moderate { outline: 2px dashed var(--moderate); outline-offset: -2px; }
-#risk-band-label.band-high, .verdict-band.band-high { outline: 3px solid var(--high); outline-offset: -3px; }
 
 /* tapping verdict banner */
 .tap-score.verdict {
@@ -858,10 +839,6 @@ body { font-variant-numeric: tabular-nums; }
 .tap-score.verdict.v-high { border-left-color: var(--high); }
 .verdict-main { flex: 1 1 320px; min-width: 0; }
 .verdict-kicker { font-size: 12px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-.verdict-band { display: inline-block; margin: 6px 0; padding: 8px 16px; border-radius: 999px; font-weight: 800; font-size: 21px; line-height: 1.2; }
-.verdict-band.band-low { background: #e5f3eb; }
-.verdict-band.band-moderate { background: #fbf0dc; }
-.verdict-band.band-high { background: #f9e3e0; }
 .verdict-why { font-size: 14px; color: var(--text); }
 .verdict-stats { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
 .verdict-stat { text-align: center; }
@@ -875,10 +852,6 @@ body { font-variant-numeric: tabular-nums; }
 
 /* hand cards: severity in the header, bars only, raw signal in a drawer */
 .tap-card-head { flex-wrap: wrap; gap: 6px 10px; }
-.sev-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; font-size: 14px; font-weight: 700; }
-.sev-pill.sev-normal { background: #e5f3eb; color: var(--low); }
-.sev-pill.sev-mild { background: #fbf0dc; color: var(--moderate); outline: 2px dashed var(--moderate); outline-offset: -2px; }
-.sev-pill-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); }
 .tap-compare { margin-bottom: 6px; }
 .tap-more { margin-top: 6px; border-top: 1px solid var(--border); }
 .tap-more summary { min-height: 44px; display: flex; align-items: center; font-size: 14px; }
@@ -914,3 +887,49 @@ body { font-variant-numeric: tabular-nums; }
 .brand.navbar-brand { padding: 0; margin: 0 4px 0 0; font-size: 20px; font-weight: 700; color: var(--primary-dk); }
 .btn .icon, .nav-link .icon { width: 20px; height: 20px; flex: 0 0 auto; }
 .btn [data-icon], .nav-link [data-icon] { display: inline-flex; }
+
+/* result banners: a Tabler card tinted by band, with an icon and the band word (never colour alone).
+   Tabler's -lt tints use the full-strength colour for text, which is too light to read on the tint,
+   so text inside banners and badges uses darker shades that pass 4.5:1. */
+:root { --dx-typical-fg: #1b6a3a; --dx-borderline-fg: #6e4400; --dx-elevated-fg: #9f2219; }
+.dx-banner.bg-green-lt, .badge.bg-green-lt { color: var(--dx-typical-fg) !important; }
+.dx-banner.bg-yellow-lt, .badge.bg-yellow-lt { color: var(--dx-borderline-fg) !important; }
+.dx-banner.bg-red-lt, .badge.bg-red-lt { color: var(--dx-elevated-fg) !important; }
+.dx-banner .band-low { color: var(--dx-typical-fg); }
+.dx-banner .band-moderate { color: var(--dx-borderline-fg); }
+.dx-banner .band-high { color: var(--dx-elevated-fg); }
+.dx-banner .risk-index-label, .dx-banner .risk-index-sub, .dx-banner .risk-number-caption, .dx-banner .risk-number-suffix,
+.dx-banner .verdict-kicker, .dx-banner .verdict-cap, .dx-banner .verdict-suffix, .dx-banner .verdict-scale,
+.dx-banner .verdict-why { color: #3c4257; }
+
+.dx-band { display: flex; flex-direction: column; gap: 2px; }
+.dx-band-word { display: inline-flex; align-items: center; gap: 8px; font-size: 26px; font-weight: 800; line-height: 1.15; }
+.dx-band-word .icon { width: 30px; height: 30px; stroke-width: 2.25; flex: 0 0 auto; }
+.dx-band-detail { font-size: 15px; font-weight: 600; }
+#risk-score-number, .verdict-num, .verdict-mid { font-variant-numeric: tabular-nums; }
+
+/* spiral: the result block is a white card; its left side is the tinted banner */
+#risk-score-block.card { flex-direction: row; padding: 16px; gap: 20px; box-shadow: var(--tblr-shadow-card); }
+#risk-score-side.dx-banner { flex: 0 0 280px; border: 0; border-radius: 10px; padding: 18px 16px; margin: 0; }
+#risk-score-side .dx-band { align-items: center; text-align: center; }
+#risk-score-number { font-size: 40px; }
+@media (max-width: 900px) {
+  #risk-score-block.card { flex-direction: column; }
+  #risk-score-side.dx-banner { flex-basis: auto; }
+}
+
+/* tapping: the whole verdict is the tinted banner, with a band-coloured edge */
+.tap-score.verdict.card { flex-direction: row; box-shadow: var(--tblr-shadow-card); border-left-width: 6px; }
+.tap-score.verdict.v-low { border-left-color: var(--dx-typical-fg); }
+.tap-score.verdict.v-moderate { border-left-color: #c98a00; }
+.tap-score.verdict.v-high { border-left-color: var(--dx-elevated-fg); }
+.verdict-band.dx-band { margin: 6px 0; }
+.verdict-scale { border-top-color: rgba(28, 35, 51, 0.15); }
+
+/* badges: severity pill and "not reliable" */
+.sev-pill.badge, .tap-card-state.badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; margin: 0;
+  border-radius: 999px; font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0; line-height: 1.2;
+}
+.sev-pill .icon, .tap-card-state .icon { width: 18px; height: 18px; }
+.sev-pill-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.85; }

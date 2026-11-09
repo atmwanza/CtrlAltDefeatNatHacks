@@ -333,7 +333,7 @@
     const compare = r.valid && Array.isArray(r.comparison) ? r.comparison.map(compareRow).join('') : '';
     const state = r.valid
       ? (r.severity ? severityPill(r.severity) : '')
-      : '<span class="tap-card-state">Not reliable</span>';
+      : `<span class="tap-card-state badge bg-yellow-lt">${window.tiIcon ? tiIcon('alert-triangle') : ''}Not reliable</span>`;
     card.innerHTML = `
       <div class="tap-card-head">
         <h3>${capitalise(hand)} hand</h3>
@@ -363,9 +363,9 @@
   // this hand's tapping, from its speed and opening angle over the first 10 taps.
   function severityPill(s) {
     const mild = s.band === '2+';
-    return `<span class="sev-pill ${mild ? 'sev-mild' : 'sev-normal'}"
-      title="Severity estimate, MDS-UPDRS 3.4 (Islam et al. 2023)"><span class="sev-pill-label">Severity</span>
-      ${mild ? '▲' : '✓'} ${escapeHtml(s.label)}</span>`;
+    const icon = window.tiIcon ? tiIcon(mild ? 'alert-triangle' : 'circle-check') : '';
+    return `<span class="sev-pill badge ${mild ? 'bg-yellow-lt sev-mild' : 'bg-green-lt sev-normal'}"
+      title="Severity estimate, MDS-UPDRS 3.4 (Islam et al. 2023)"><span class="sev-pill-label">Severity</span>${icon}${escapeHtml(s.label)}</span>`;
   }
 
   function severityBadge(s) {
@@ -463,11 +463,11 @@
       : `The ${s.worse_hand} hand counts; no single measure stood out.`;
     const match = handMatch();
     const vcls = { 'band-low': 'v-low', 'band-moderate': 'v-moderate', 'band-high': 'v-high' }[band.cls] || '';
-    scoreEl.className = `tap-score verdict ${vcls}`;
+    scoreEl.className = `tap-score verdict card dx-banner ${bandUi(band.cls).bg} ${vcls}`;
     scoreEl.innerHTML = `
       <div class="verdict-main">
         <div class="verdict-kicker">Tapping result</div>
-        <div class="verdict-band ${band.cls}">${escapeHtml(band.label)}</div>
+        <div class="verdict-band dx-band ${band.cls}">${bandHtml(band.cls, band.label)}</div>
         <div class="verdict-why">${escapeHtml(reason)}</div>
       </div>
       <div class="verdict-stats">
@@ -483,7 +483,7 @@
           <div class="verdict-mid">${match.speed}% · ${match.size}%</div>
           <div class="verdict-cap">Left–right match (speed · size)</div>
         </div>` : ''}
-        <button class="btn verdict-retest" type="button">↻ Retest</button>
+        <button class="btn verdict-retest" type="button">${window.tiIcon ? tiIcon('refresh') : ''}Retest</button>
       </div>
       <div class="verdict-scale">Under ${s.bands.typical_below} typical · ${s.bands.typical_below}–${s.bands.elevated_from - 1} borderline ·
         ${s.bands.elevated_from}+ elevated · a screening estimate, not a diagnosis</div>`;

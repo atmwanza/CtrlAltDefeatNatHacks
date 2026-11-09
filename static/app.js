@@ -433,6 +433,23 @@ function riskBand(score) {
   return { cls: 'band-high', label: 'Elevated: consider a clinical review' };
 }
 
+// Band look shared with the tapping result: a Tabler tint, an icon and a word, never colour alone.
+const BAND_UI = {
+  'band-low': { word: 'Typical', icon: 'circle-check', bg: 'bg-green-lt' },
+  'band-moderate': { word: 'Borderline', icon: 'alert-triangle', bg: 'bg-yellow-lt' },
+  'band-high': { word: 'Elevated', icon: 'alert-octagon', bg: 'bg-red-lt' },
+};
+function bandUi(cls) { return BAND_UI[cls] || BAND_UI['band-low']; }
+function bandHtml(cls, label) {
+  const ui = bandUi(cls);
+  let detail = String(label || '');
+  if (detail.includes(':')) detail = detail.slice(detail.indexOf(':') + 1).trim();
+  detail = detail.charAt(0).toUpperCase() + detail.slice(1);
+  const icon = window.tiIcon ? tiIcon(ui.icon) : '';
+  return `<span class="dx-band-word">${icon}${ui.word}</span>`
+    + (detail ? `<span class="dx-band-detail">${escapeHtml(detail)}</span>` : '');
+}
+
 function pctBand(pct) {
   if (pct < RISK_BAND_LOW_MAX) return 'pct-low';
   if (pct < RISK_BAND_MOD_MAX) return 'pct-moderate';
@@ -450,8 +467,9 @@ function displayResults(data) {
   countUp(scoreEl, Math.round(data.risk_score));
   const band = riskBand(data.risk_score);
   scoreEl.className = band.cls;
-  bandEl.textContent = band.label;
-  bandEl.className = band.cls;
+  bandEl.innerHTML = bandHtml(band.cls, band.label);
+  bandEl.className = `dx-band ${band.cls}`;
+  document.getElementById('risk-score-side').className = `card dx-banner ${bandUi(band.cls).bg}`;
 
   const grid = document.getElementById('features-grid');
   grid.innerHTML = '';
