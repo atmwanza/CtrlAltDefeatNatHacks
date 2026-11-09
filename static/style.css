@@ -825,3 +825,8 @@ body.mode-tapping .spiral-only { display: none !important; }
   .topbar-left { flex-basis: 100%; }
   .topbar-right { margin-left: auto; }
 }
+
+/* spiral: feature cards folded into a drawer under the result */
+#spiral-more { margin-bottom: 14px; }
+#spiral-more #features-grid { margin-bottom: 4px; }
+
