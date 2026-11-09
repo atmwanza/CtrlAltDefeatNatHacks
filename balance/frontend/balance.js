@@ -529,7 +529,7 @@
       <div class="tap-results">${cards}</div>`;
     $('bal-withdraw').addEventListener('click', () => withdraw(data.participant));
     renderDataset(data.summary);
-    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    resultsEl.scrollIntoView({ behavior: (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'), block: 'start' });
   }
 
   async function withdraw(pid) {

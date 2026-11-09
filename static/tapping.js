@@ -500,7 +500,7 @@
     scoreEl.querySelector('.verdict-retest').addEventListener('click', clearResults);
     scoreEl.classList.remove('hidden');
     countUp(scoreEl.querySelector('.verdict-num'), s.score);
-    scoreEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scoreEl.scrollIntoView({ behavior: (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'), block: 'start' });
     // sources and validation, once, in the footer
     const sev = (R.severity || L.severity || {}).validation;
     if (footerEl) {

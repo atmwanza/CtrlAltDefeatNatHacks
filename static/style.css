@@ -451,7 +451,7 @@ body, #canvas-container, #spiral-canvas {
 .btn, .device-select { touch-action: manipulation; }
 
 .device-select {
-  min-height: 40px;
+  min-height: 48px;
   padding: 0 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -604,7 +604,6 @@ body.mode-tapping .spiral-only { display: none !important; }
 
 .tap-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
 .tap-buttons .btn { flex: 1 1 160px; min-height: 52px; font-size: 16px; }
-.btn:disabled { opacity: 0.5; cursor: default; }
 
 .tap-progress { display: flex; align-items: center; gap: 12px; }
 .tap-progress .progress { flex: 1 1 auto; height: 12px; }
@@ -641,7 +640,6 @@ body.mode-tapping .spiral-only { display: none !important; }
 .sev-normal .tap-severity-band { color: var(--low); }
 .sev-mild .tap-severity-band { color: var(--moderate); }
 .tap-severity-src { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
-.tap-card.invalid .tap-card-state { color: var(--moderate); }
 
 .tap-warnings {
   margin: 0 0 12px;
@@ -846,7 +844,7 @@ body { font-variant-numeric: tabular-nums; }
 .tap-card-head { flex-wrap: wrap; gap: 6px 10px; }
 .tap-compare { margin-bottom: 6px; }
 .tap-more { margin-top: 6px; border-top: 1px solid var(--border); }
-.tap-more summary { min-height: 44px; display: flex; align-items: center; font-size: 14px; }
+.tap-more summary { min-height: 48px; display: flex; align-items: center; font-size: 14px; }
 .tap-more[open] summary { margin-bottom: 8px; }
 
 /* one footer for sources and the disclaimer */
@@ -924,7 +922,7 @@ body { font-variant-numeric: tabular-nums; }
   border-radius: 999px; font-size: 14px; font-weight: 700; text-transform: none; letter-spacing: 0; line-height: 1.2;
 }
 .sev-pill .icon, .tap-card-state .icon { width: 18px; height: 18px; }
-.sev-pill-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.85; }
+.sev-pill-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
 
 /* cards: Tabler card > card-body; our titles keep their size */
 .feature-card .card-title { margin: 0 0 2px; }
@@ -933,3 +931,21 @@ body { font-variant-numeric: tabular-nums; }
 
 /* tapping stepper: Tabler steps (right hand -> left hand -> result) */
 #tap-steps { margin: 4px 0 14px; font-size: 14px; font-weight: 600; --tblr-steps-dot-size: 1.75rem; }
+
+/* visible focus ring on everything you can tab to (Tabler's ring is faint on tinted cards) */
+button:focus-visible, a:focus-visible, summary:focus-visible, select:focus-visible, input:focus-visible,
+.btn:focus-visible, .nav-link:focus-visible, .form-select:focus-visible, .form-control:focus-visible,
+.form-check-input:focus-visible {
+  outline: 3px solid var(--tblr-primary);
+  outline-offset: 2px;
+}
+
+/* new motion (Tabler's progress-bar width and button transitions) off for reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+  .progress-bar, .btn, .nav-link { transition: none !important; }
+}
+
+/* contrast fixes found by the 4.5:1 check: done button, tab labels */
+.tap-buttons .btn.done { color: var(--dx-typical-fg); }
+.mode-switch .mode-btn:not(.active) { color: #4f5568; }
+.mode-switch .mode-btn.active { color: var(--primary); }
