@@ -949,3 +949,15 @@ button:focus-visible, a:focus-visible, summary:focus-visible, select:focus-visib
 .tap-buttons .btn.done { color: var(--dx-typical-fg); }
 .mode-switch .mode-btn:not(.active) { color: #4f5568; }
 .mode-switch .mode-btn.active { color: var(--primary); }
+
+/* ---------- PRISM logo: second row of the top bar, left of the spiral buttons ---------- */
+/* The PNG has white margins; these numbers crop to the logo itself (1680 x 428 px of 1903 x 729). */
+.topbar-logo {
+  --logo-h: 44px;
+  flex: 0 0 auto;
+  width: calc(var(--logo-h) * 1680 / 428);
+  height: var(--logo-h);
+  background: url('/static/prism-logo.png') no-repeat;
+  background-size: calc(var(--logo-h) * 1903 / 428) auto;
+  background-position: calc(var(--logo-h) * -80 / 428) calc(var(--logo-h) * -200 / 428);
+}

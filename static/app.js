@@ -473,6 +473,10 @@ function displayResults(data) {
 
   const grid = document.getElementById('features-grid');
   grid.innerHTML = '';
+
+  const more = document.getElementById('spiral-more');
+  if (more) more.open = false;   // each new result starts with the measurements folded away
+
   for (const [key, f] of Object.entries(data.features)) {
     const card = document.createElement('div');
     const band2 = f.scored === false ? 'pct-unscored' : pctBand(f.percentile_pd);

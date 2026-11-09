@@ -7,8 +7,8 @@
 <!-- ?v= forces tablets to fetch new code on a normal refresh; bump it after editing static/ -->
 <!-- Tabler UI kit (MIT, static/vendor/tabler/LICENSE), CSS only and served locally; loaded first so our own rules win -->
 <link rel="stylesheet" href="/static/vendor/tabler/tabler.min.css?v=1.7.4">
-<link rel="stylesheet" href="/static/style.css?v=20261108s">
-<link rel="stylesheet" href="/balance/static/balance.css?v=20261108s">
+<link rel="stylesheet" href="/static/style.css?v=20261108t">
+<link rel="stylesheet" href="/balance/static/balance.css?v=20261108t">
 </head>
 <body>
 
@@ -27,7 +27,6 @@
 
 <header class="topbar navbar">
   <div class="topbar-left">
-    <span class="brand navbar-brand">DrawDx</span>
     <nav class="mode-switch nav nav-segmented nav-lg" role="tablist" aria-label="Test">
       <button id="mode-spiral-btn" class="mode-btn nav-link active" role="tab" aria-selected="true"><span data-icon="ballpen"></span>Spiral</button>
       <button id="mode-tapping-btn" class="mode-btn nav-link" role="tab" aria-selected="false"><span data-icon="hand-finger"></span>Tapping</button>
@@ -41,6 +40,7 @@
     <span id="telemetry-strip" class="telemetry spiral-only">Waiting for S Pen&hellip;</span>
     <span id="tap-camera-badge" class="tap-camera-badge tapping-only">Camera: checking&hellip;</span>
   </div>
+  <div class="topbar-logo" role="img" aria-label="PRISM: Parkinson's Research through Interactive Screening of Movement"></div>
   <div class="topbar-right">
     <button id="demo-healthy-btn" class="btn spiral-only"><span data-icon="player-play"></span>Demo: Healthy</button>
     <button id="demo-pd-btn" class="btn spiral-only"><span data-icon="player-play"></span>Demo: PD</button>
@@ -64,8 +64,8 @@
           <span class="risk-number-caption">Similarity to Parkinson's group</span>
           <span id="risk-score-number">—</span><span class="risk-number-suffix">/100</span>
         </div>
-        <div class="risk-index-sub">Compared with a clinical dataset of 76 people (15 healthy, 61 with Parkinson's). A screening estimate, not a diagnosis.</div>
-      </div>
+          <div class="risk-index-sub">A probability, not a percentage chance of having Parkinson's: how likely this drawing is to come from the Parkinson's group rather than the healthy group (50 = equally likely), in a clinical dataset of 76 (15 healthy, 61 with Parkinson's). Not a diagnosis.</div>
+        </div>
       <div id="heatmap-side">
         <canvas id="heatmap-canvas"></canvas>
         <div class="heatmap-legend">
@@ -145,9 +145,9 @@
   </section>
 </main>
 
-<script src="/static/icons.js?v=20261108s"></script>
-<script src="/static/app.js?v=20261108s"></script>
-<script src="/static/tapping.js?v=20261108s"></script>
-<script src="/balance/static/balance.js?v=20261108s"></script>
+<script src="/static/icons.js?v=20261108t"></script>
+<script src="/static/app.js?v=20261108t"></script>
+<script src="/static/tapping.js?v=20261108t"></script>
+<script src="/balance/static/balance.js?v=20261108t"></script>
 </body>
 </html>

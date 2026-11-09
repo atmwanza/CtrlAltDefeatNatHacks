@@ -459,7 +459,6 @@
       <div class="tap-metrics">
         ${metric('Sway speed', fmt(m.mean_vel, unit + '/s'), 'How fast the body drifted')}
         ${metric('Side-to-side sway', fmt(m.rms_ml, unit), 'Typical distance from the centre')}
-        ${metric('Total sway path', fmt(m.path_len, unit), 'Distance moved in 30 s')}
       </div>`;
     return `
       <div class="tap-card${s.status === 'invalid_trial' ? ' invalid' : ''}">
