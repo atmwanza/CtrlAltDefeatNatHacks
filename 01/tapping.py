@@ -33,7 +33,7 @@ CAPTURE_STALE_S = 12      # no hello for this long -> camera considered offline
 UPLOAD_GRACE_S = 45       # recording + upload must finish within duration + this
 MAX_JOBS = 30
 
-_capture = {'url': None, 'seen': 0.0, 'source': None, 'camera': None}
+_capture = {'url': None, 'seen': 0.0, 'source': None, 'camera': None, 'frozen': False}
 # Other tests that borrow the camera (balance) register here: hand prefix -> handler(sid, data, meta)
 UPLOAD_HANDLERS = {}
 _jobs = {}
@@ -41,8 +41,18 @@ _jobs_lock = threading.Lock()
 _analysis_lock = threading.Lock()   # one analysis at a time keeps the laptop responsive
 
 
-def _capture_ready():
+def _capture_seen():
     return _capture['url'] is not None and time.time() - _capture['seen'] < CAPTURE_STALE_S
+
+
+def _capture_frozen():
+    # The device is alive (hello arrives) but its camera stopped delivering frames; the Pi
+    # service restarts itself when this happens.
+    return _capture_seen() and _capture['frozen']
+
+
+def _capture_ready():
+    return _capture_seen() and not _capture['frozen']
 
 
 def _set_job(sid, **fields):
@@ -56,8 +66,8 @@ def _set_job(sid, **fields):
 @router.get('/health')
 def health():
     age = time.time() - _capture['seen'] if _capture['seen'] else None
-    return {'ok': True, 'capture_ready': _capture_ready(), 'capture_url': _capture['url'],
-            'capture_source': _capture['source'], 'camera': _capture['camera'],
+    return {'ok': True, 'capture_ready': _capture_ready(), 'camera_frozen': _capture_frozen(),
+            'capture_url': _capture['url'], 'capture_source': _capture['source'], 'camera': _capture['camera'],
             'capture_age_s': round(age, 1) if age is not None else None}
 
 
@@ -67,7 +77,7 @@ def capture_hello(info: dict, request: Request):
     # the hotspot, the Ethernet fallback, and a local webcam process alike).
     host = request.client.host
     _capture.update(url=f"http://{host}:{int(info.get('port', 8000))}", seen=time.time(),
-                    source=info.get('source'), camera=info.get('camera'))
+                    source=info.get('source'), camera=info.get('camera'), frozen=bool(info.get('frozen')))
     return {'ok': True}
 
 
@@ -76,6 +86,8 @@ def tapping_start(body: dict):
     hand = body.get('hand')
     if hand not in ('right', 'left'):
         raise HTTPException(400, "hand must be 'right' or 'left'")
+    if _capture_frozen():
+        raise HTTPException(503, 'Camera frozen; it restarts itself in a few seconds.')
     if not _capture_ready():
         raise HTTPException(503, 'Camera not connected. Is the Pi (or webcam capture) running?')
     duration = float(body.get('duration_s', 10))

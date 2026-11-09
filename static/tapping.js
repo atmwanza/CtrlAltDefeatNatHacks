@@ -97,12 +97,15 @@
   // ---------- camera status + preview ----------
 
   async function checkHealth() {
+    let frozen = false;   // camera alive but no new frames; the Pi service restarts itself
     try {
       const h = await fetch('/health', { cache: 'no-store' }).then(r => r.json());
       cameraReady = !!h.capture_ready;
+      frozen = !!h.camera_frozen;
       const names = { picamera: 'Pi camera', webcam: 'laptop webcam', synthetic: 'test source' };
       const label = names[h.capture_source] || 'camera';
-      cameraBadge.textContent = cameraReady ? `● ${label} connected` : '● Camera not connected';
+      cameraBadge.textContent = cameraReady ? `● ${label} connected`
+        : frozen ? '● Camera frozen: restarting…' : '● Camera not connected';
       cameraBadge.classList.toggle('ok', cameraReady);
     } catch (_) {
       cameraReady = false;
@@ -112,7 +115,10 @@
     updateButtons();
     if (cameraReady && !streaming) startPreview();
     if (!cameraReady && streaming) stopPreview();
-    if (!running && !cameraReady) {
+    if (!running && frozen) {
+      // starts with "Waiting" so the branch below clears it once the camera is back
+      setMessage('Waiting for the camera: it froze and restarts itself in a few seconds.', 'warn');
+    } else if (!running && !cameraReady) {
       setMessage('Waiting for the camera. Start the Pi, or run the webcam capture on the laptop.', 'warn');
     } else if (!running && message.dataset.kind === 'warn' && message.textContent.startsWith('Waiting')) {
       setMessage('');

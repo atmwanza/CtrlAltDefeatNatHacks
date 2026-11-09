@@ -18,6 +18,11 @@ HTTP (port 8000): GET /health, GET /stream.mjpg (live preview), GET /snapshot.jp
 Every 5 s it says hello to the laptop (POST /pi/hello) so the laptop knows where it is.
 Uploads go to the laptop: POST /tapping/upload (multipart: clip=ZIP, meta=JSON).
 
+A watchdog checks that new frames keep arriving. If none arrive for FREEZE_S seconds (the
+camera can hang inside grab() while HTTP and the heartbeat keep working), it tells the
+laptop (hello with frozen=true). Under systemd it then exits, so the service restarts and
+the camera is reopened; elsewhere (webcam/synthetic on the laptop) it only reports the freeze.
+
 Settings (environment variables, all optional):
     SOURCE        picamera | webcam | synthetic
     LAPTOP_URLS   comma-separated, tried in order
@@ -31,6 +36,8 @@ Settings (environment variables, all optional):
     PREVIEW_FPS   20     live preview rate (the recording always keeps every frame)
     LED_PIN       17     BCM pin for the "recording" LED (Pi only; skipped if absent)
     ROTATE        0 | 180  180 = camera taped upside-down (ribbon pointing up); flips the image back
+    FREEZE_S      5      no new frame for this long = camera frozen (20 s grace for the first
+                         frame while the camera starts); under systemd the service restarts
 """
 import io
 import json
@@ -60,6 +67,9 @@ LED_PIN = int(os.environ.get('LED_PIN', 17))
 ROTATE = int(os.environ.get('ROTATE', 0))
 if ROTATE not in (0, 180):
     sys.exit(f'ROTATE must be 0 or 180, not {ROTATE}')
+FREEZE_S = float(os.environ.get('FREEZE_S', 5))
+FIRST_FRAME_GRACE_S = max(20.0, FREEZE_S)    # opening the camera can take a while
+UNDER_SYSTEMD = 'INVOCATION_ID' in os.environ   # systemd sets this for every service it starts
 SIZE = (640, 480)
 
 
@@ -184,8 +194,10 @@ class CameraLoop:
         self.latest = None            # (seq, ts_ns, jpeg)
         self.seq = 0
         self.recording = None         # list of (ts_ns, jpeg) while recording, else None
-        self.fps = 0.0
+        self.fps = 0.0                # measured once per second while frames arrive
         self.error = None
+        self.started_t = time.monotonic()
+        self.last_frame_t = None      # monotonic time of the last good frame
         threading.Thread(target=self._run, daemon=True).start()
 
     def _run(self):
@@ -205,10 +217,23 @@ class CameraLoop:
                 if self.recording is not None:
                     self.recording.append((ts, jpeg))
                 self.cond.notify_all()
+            self.last_frame_t = time.monotonic()
             n += 1
             now = time.perf_counter()
             if now - t0 >= 1.0:
                 self.fps, n, t0 = n / (now - t0), 0, now
+
+    def frame_age(self):
+        """Seconds since the last good frame (or since the camera started, before the first)."""
+        return time.monotonic() - (self.last_frame_t or self.started_t)
+
+    def frozen(self):
+        """No new frame for too long: grab() blocked, or it keeps failing."""
+        return self.frame_age() > (FREEZE_S if self.last_frame_t else FIRST_FRAME_GRACE_S)
+
+    def fps_now(self):
+        """self.fps stops updating when frames stop, so report 0 rather than a stale number."""
+        return 0.0 if self.frozen() else round(self.fps, 1)
 
     def start_recording(self):
         with self.cond:
@@ -335,20 +360,50 @@ def snapshot():
 @app.get('/health')
 def health():
     return jsonify(ok=True, busy=busy.locked(), source=SOURCE, camera=source.name, fps_cfg=FPS, rotate=ROTATE,
-                   fps_actual=round(camera.fps, 1), camera_error=camera.error,
+                   fps_actual=camera.fps_now(), frame_age_s=round(camera.frame_age(), 1),
+                   frozen=camera.frozen(), camera_error=camera.error,
                    laptop=state['laptop'], last=state['last'])
+
+
+def say_hello(timeout=2):
+    return post_laptop('/pi/hello', timeout=timeout, json={
+        'port': PORT, 'source': SOURCE, 'camera': source.name, 'fps_actual': camera.fps_now(),
+        'frame_age_s': round(camera.frame_age(), 1), 'frozen': camera.frozen()})
 
 
 def heartbeat():
     while True:
-        post_laptop('/pi/hello', timeout=2, json={'port': PORT, 'source': SOURCE, 'camera': source.name,
-                                                   'fps_actual': round(camera.fps, 1)})
+        say_hello()
         time.sleep(5)
+
+
+def watchdog():
+    """Catch a camera that stops delivering frames while everything else still runs."""
+    was_frozen = False
+    while True:
+        time.sleep(0.5)
+        frozen = camera.frozen()
+        if frozen and not was_frozen:
+            print(f'[capture] camera frozen: no new frame for {camera.frame_age():.1f} s '
+                  f'(last error: {camera.error})', flush=True)
+            say_hello(timeout=1)          # the tablet shows "frozen" right away
+            if UNDER_SYSTEMD:
+                print('[capture] exiting so systemd restarts the service', flush=True)
+                try:
+                    led.off()
+                finally:
+                    os._exit(1)           # a thread stuck inside libcamera can't be stopped any other way
+            camera.error = 'camera frozen'
+        elif was_frozen and not frozen:
+            print('[capture] camera recovered', flush=True)
+            say_hello(timeout=1)
+        was_frozen = frozen
 
 
 if __name__ == '__main__':
     print(f'[capture] source={SOURCE} camera={source.name} fps={FPS} preview={PREVIEW_FPS}fps '
-          f'port={PORT} laptop={LAPTOP_URLS}', flush=True)
+          f'port={PORT} laptop={LAPTOP_URLS} freeze={FREEZE_S}s systemd={UNDER_SYSTEMD}', flush=True)
     threading.Thread(target=heartbeat, daemon=True).start()
+    threading.Thread(target=watchdog, daemon=True).start()
     # On the laptop (webcam/synthetic) only the local backend needs to reach us.
     app.run(host='127.0.0.1' if LOCAL else '0.0.0.0', port=PORT, threaded=True)
