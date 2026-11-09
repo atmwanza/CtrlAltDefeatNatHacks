@@ -7,8 +7,8 @@
 <!-- ?v= forces tablets to fetch new code on a normal refresh; bump it after editing static/ -->
 <!-- Tabler UI kit (MIT, static/vendor/tabler/LICENSE), CSS only and served locally; loaded first so our own rules win -->
 <link rel="stylesheet" href="/static/vendor/tabler/tabler.min.css?v=1.7.4">
-<link rel="stylesheet" href="/static/style.css?v=20261108m">
-<link rel="stylesheet" href="/balance/static/balance.css?v=20261108m">
+<link rel="stylesheet" href="/static/style.css?v=20261108n">
+<link rel="stylesheet" href="/balance/static/balance.css?v=20261108n">
 </head>
 <body>
 
@@ -21,17 +21,17 @@
       <li>Keeping that pressure, trace the gray spiral to the <strong>FINISH</strong> ring in one stroke, at a steady pace (about 15–30 seconds).</li>
       <li>Once you reach the finish ring, tap <strong>Analyze Spiral</strong>.</li>
     </ol>
-    <button id="begin-drawing-btn" class="btn btn-primary">Begin Drawing</button>
+    <button id="begin-drawing-btn" class="btn btn-primary btn-lg"><span data-icon="ballpen"></span>Begin Drawing</button>
   </div>
 </div>
 
-<header class="topbar">
+<header class="topbar navbar">
   <div class="topbar-left">
-    <span class="brand">DrawDx</span>
-    <div class="mode-switch" role="tablist" aria-label="Test">
-      <button id="mode-spiral-btn" class="mode-btn active" role="tab" aria-selected="true">Spiral</button>
-      <button id="mode-tapping-btn" class="mode-btn" role="tab" aria-selected="false">Tapping</button>
-    </div>
+    <span class="brand navbar-brand">DrawDx</span>
+    <nav class="mode-switch nav nav-segmented nav-lg" role="tablist" aria-label="Test">
+      <button id="mode-spiral-btn" class="mode-btn nav-link active" role="tab" aria-selected="true"><span data-icon="ballpen"></span>Spiral</button>
+      <button id="mode-tapping-btn" class="mode-btn nav-link" role="tab" aria-selected="false"><span data-icon="hand-finger"></span>Tapping</button>
+    </nav>
     <span id="mock-badge" class="mock-badge hidden spiral-only">MOCK DATA</span>
     <select id="device-select" class="device-select spiral-only" aria-label="Tablet type">
       <option value="auto">Auto-detect</option>
@@ -42,10 +42,10 @@
     <span id="tap-camera-badge" class="tap-camera-badge tapping-only">Camera: checking&hellip;</span>
   </div>
   <div class="topbar-right">
-    <button id="demo-healthy-btn" class="btn btn-ghost spiral-only">▶ Demo: Healthy</button>
-    <button id="demo-pd-btn" class="btn btn-ghost spiral-only">▶ Demo: PD</button>
-    <button id="clear-btn" class="btn btn-ghost spiral-only">Clear</button>
-    <button id="analyze-btn" class="btn btn-primary spiral-only" disabled>Analyze Spiral</button>
+    <button id="demo-healthy-btn" class="btn spiral-only"><span data-icon="player-play"></span>Demo: Healthy</button>
+    <button id="demo-pd-btn" class="btn spiral-only"><span data-icon="player-play"></span>Demo: PD</button>
+    <button id="clear-btn" class="btn spiral-only"><span data-icon="eraser"></span>Clear</button>
+    <button id="analyze-btn" class="btn btn-primary spiral-only" disabled><span data-icon="activity"></span>Analyze Spiral</button>
   </div>
 </header>
 
@@ -88,7 +88,7 @@
       Screening tool only. Not a clinical diagnosis. Please discuss any concerns with a clinician.
     </div>
 
-    <button id="draw-again-btn" class="btn btn-primary">Draw Again</button>
+    <button id="draw-again-btn" class="btn btn-primary"><span data-icon="refresh"></span>Draw Again</button>
   </section>
 
   <section id="tapping-panel" class="hidden">
@@ -127,7 +127,7 @@
     <div id="tap-results" class="tap-results"></div>
     <div id="tap-asymmetry" class="tap-asymmetry hidden"></div>
 
-    <button id="tap-clear-btn" class="btn btn-primary hidden">Clear and start over</button>
+    <button id="tap-clear-btn" class="btn btn-primary hidden"><span data-icon="refresh"></span>Clear and start over</button>
 
     <div id="tap-footer" class="tap-footer">
       Compared with 47 healthy people and 53 people with Parkinson's (Kasemsap et al., PLOS ONE 2025; data CC BY 4.0).
@@ -137,8 +137,9 @@
   </section>
 </main>
 
-<script src="/static/app.js?v=20261108j"></script>
-<script src="/static/tapping.js?v=20261108j"></script>
-<script src="/balance/static/balance.js?v=20261108j"></script>
+<script src="/static/icons.js?v=20261108n"></script>
+<script src="/static/app.js?v=20261108n"></script>
+<script src="/static/tapping.js?v=20261108n"></script>
+<script src="/balance/static/balance.js?v=20261108n"></script>
 </body>
 </html>

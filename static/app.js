@@ -403,7 +403,7 @@ async function submitDrawing(source) {
   };
 
   analyzeBtn.disabled = true;
-  analyzeBtn.textContent = 'Analyzing…';
+  analyzeBtn.innerHTML = `${(window.tiIcon ? tiIcon('activity') : '')}Analyzing…`;
   try {
     const res = await fetch(ANALYZE_ENDPOINT, {
       method: 'POST',
@@ -416,7 +416,7 @@ async function submitDrawing(source) {
   } catch (err) {
     alert(`Analysis failed: ${err.message}`);
   } finally {
-    analyzeBtn.textContent = 'Analyze Spiral';
+    analyzeBtn.innerHTML = `${(window.tiIcon ? tiIcon('activity') : '')}Analyze Spiral`;
     maybeEnableAnalyze();
   }
 }

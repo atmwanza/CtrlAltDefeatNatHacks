@@ -90,34 +90,13 @@ body {
   background: var(--low);
 }
 
+/* buttons: Tabler draws them (colours, border, hover, focus); we only set touch size and weight */
 .btn {
   min-height: 48px;
-  padding: 0 18px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-size: 14px;
+  gap: 8px;
+  font-size: 15px;
   font-weight: 600;
-  cursor: pointer;
   white-space: nowrap;
-}
-
-.btn:active { transform: translateY(1px); }
-
-.btn-ghost:hover { background: var(--bg); }
-
-.btn-primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: white;
-}
-
-.btn-primary:hover { background: var(--primary-dk); }
-
-.btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
 }
 
 /* ---------- canvas area ---------- */
@@ -538,31 +517,10 @@ main {
 
 /* ---------- test switch (Spiral / Tapping) ---------- */
 
-.mode-switch {
-  display: inline-flex;
-  flex: 0 0 auto;
-  padding: 3px;
-  border-radius: 10px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-}
-
-.mode-btn {
-  min-height: 40px;
-  padding: 0 14px;
-  border: none;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--text-muted);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.mode-btn.active { background: var(--surface); color: var(--primary); box-shadow: 0 1px 3px rgba(28, 35, 51, 0.12); }
-.mode-btn:disabled { opacity: 0.5; cursor: default; }
+/* test tabs: Tabler's segmented nav (nav nav-segmented nav-lg); 48 px links, our click handlers */
+.mode-switch { flex: 0 0 auto; --tblr-nav-height: 52px; --tblr-nav-font-size: 15px; }
+.mode-btn { font-weight: 600; touch-action: manipulation; border: 0; }
+.mode-btn.active { color: var(--primary); }
 
 .tapping-only { display: none; }
 body.mode-tapping .tapping-only { display: inline-flex; }
@@ -941,3 +899,18 @@ body { font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) {
   .gauge-pin, .tap-buttons .btn.next { animation: none; }
 }
+
+/* ---------- Tabler restyle ---------- */
+
+/* our brand blue drives Tabler's primary (buttons, active tab, steps, progress, focus ring) */
+:root {
+  --tblr-primary: #3d5a99;
+  --tblr-primary-rgb: 61, 90, 153;
+  --tblr-primary-fg: #ffffff;
+}
+
+/* top bar: Tabler navbar look, same height as before so the canvas keeps its size */
+.topbar.navbar { padding: 8px 20px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.brand.navbar-brand { padding: 0; margin: 0 4px 0 0; font-size: 20px; font-weight: 700; color: var(--primary-dk); }
+.btn .icon, .nav-link .icon { width: 20px; height: 20px; flex: 0 0 auto; }
+.btn [data-icon], .nav-link [data-icon] { display: inline-flex; }

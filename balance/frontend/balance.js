@@ -26,10 +26,10 @@
 
   const balanceTab = document.createElement('button');
   balanceTab.id = 'mode-balance-btn';
-  balanceTab.className = 'mode-btn';
+  balanceTab.className = 'mode-btn nav-link';
   balanceTab.setAttribute('role', 'tab');
   balanceTab.setAttribute('aria-selected', 'false');
-  balanceTab.textContent = 'Balance (planned)';
+  balanceTab.innerHTML = `${window.tiIcon ? tiIcon('walk') : ''}Balance (planned)`;
   modeSwitch.appendChild(balanceTab);
 
   const cameraBadge = document.createElement('span');
