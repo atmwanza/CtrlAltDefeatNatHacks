@@ -83,8 +83,9 @@
           quality checks), consent and anonymous storage.<br><b>Not started:</b> data collection.</p>
       </div></div>
     </div>
+    <div class="card bal-pilot-card">
     <details id="bal-pilot" class="bal-pilot">
-      <summary>Try the recorder (pilot, for our team)</summary>
+      <summary>${ic('camera')}Try the recorder (pilot, for our team)</summary>
     <div class="tap-grid">
       <div class="tap-camera">
         <div class="tap-preview-wrap">
@@ -100,16 +101,16 @@
           <li>Stand still: <strong>30 s eyes open, then 30 s eyes closed</strong>. A voice tells you when (sound on).</li>
         </ol>
         <div class="bal-form">
-          <label>Age <select id="bal-age">
+          <label>Age <select id="bal-age" class="form-select">
             <option value="">choose…</option><option>18-29</option><option>30-44</option><option>45-59</option>
             <option>60-74</option><option>75+</option><option>prefer not to say</option></select></label>
-          <label>Sex <select id="bal-sex">
+          <label>Sex <select id="bal-sex" class="form-select">
             <option value="">skip</option><option>female</option><option>male</option><option>other</option>
             <option>prefer not to say</option></select></label>
           <label class="bal-height">Height
-            <input id="bal-height" type="number" inputmode="numeric" min="100" max="230" value="170"> cm</label>
+            <input id="bal-height" class="form-control" type="number" inputmode="numeric" min="100" max="230" value="170"> cm</label>
         </div>
-        <label class="bal-consent"><input id="bal-consent" type="checkbox">
+        <label class="bal-consent"><input id="bal-consent" class="form-check-input" type="checkbox">
           <span>I agree to my <b>anonymous numbers</b> (no name, no video) being saved for this student project's
             research. I can ask for them to be deleted.</span></label>
         <div class="tap-buttons">
@@ -124,6 +125,7 @@
     <div id="bal-results"></div>
     <div id="bal-dataset" class="bal-dataset"></div>
     </details>
+    </div>
     <div class="tap-footer">ⓘ A planned student study, not a medical test. Protocol after de Oliveira et al., Front Neurosci
       2022 (public Parkinson's balance dataset, force plate, CC0) and Santos &amp; Duarte, PeerJ 2016 (public healthy-adult
       dataset). Camera method (body tracking + de Leva centre-of-mass model) as in Sonar et al., Sensors 2026. One camera
