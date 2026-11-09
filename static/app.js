@@ -17,7 +17,7 @@ const drawWarning = document.getElementById('draw-warning');
 
 const mainEl = document.querySelector('main');
 const MIN_POINTS_TO_ANALYZE = 150;
-const ANALYZE_ENDPOINT = '/analyze'; // swap to teammates' real backend URL once /analyze is live; mock_server.py answers this today
+const ANALYZE_ENDPOINT = '/analyze'; // served by 01/app.py (spiral scoring)
 
 let points = [];          // {x, y, t, p, s} — all strokes, CSS-pixel coords relative to canvas
 let strokeIndex = 0;

@@ -45,7 +45,7 @@
       "Convert to UCI line format X;Y;Z;Pressure;GripAngle;Timestamp;TestID (integers): scale x,y so the template spiral spans ~370 units, pressure * 1023, Z = 0, GripAngle = 0 (not available from PointerEvent, and unused by the features), timestamps in ms from 0, TestID = 0 (static spiral).",
       "Run the existing feature extraction on that UCI-format data unchanged."
     ],
-    "reference_implementation": "tools/real_backend_adapter.py — write_uci_file(), resample(), TABLET_CALIBRATION. The 20 calibration drawings are in tablet_drawings/calibration/ (UCI format, loadable with load_spiral)."
+    "reference_implementation": "01/app.py — analyze() keeps the longest stroke; build_calibration() sets per-device factors from 01/calibration/<platform>/. 01/spiral_features.py — resample() puts the drawing on an even 100 Hz grid. The steps above describe the first prototype (since removed); the first 20 tablet drawings are in tablet_drawings/calibration/ (UCI format)."
   },
   "tablet_calibration": {
     "applies_to": "pointer_type == 'pen' only. UCI reference data is never modified.",
@@ -87,7 +87,7 @@
       "warnings": "string[], optional — data-quality notes shown above the feature cards (short drawing, few samples, under one turn, mouse input)",
       "interpretation": "string — short clinical narrative",
       "disclaimer": "string — must be shown verbatim in the UI",
-      "is_mock": "bool, optional — true only from mock_server.py; the UI shows a red MOCK DATA badge",
+      "is_mock": "bool, optional — true only from a mock backend; the UI shows a red MOCK DATA badge",
       "backend_label": "string, optional — shown as a green badge for a real backend"
     },
     "feature_keys": {

@@ -1,6 +1,6 @@
 # USB Debugging Setup — Galaxy Tab S10 FE
 
-Goal: `http://localhost:5000` on the tablet's Chrome talks to the laptop's Flask server over USB, with no WiFi dependency. `localhost` is also required for the PointerEvent API's Secure Context checks — `http://192.168.x.x` does not count as secure.
+Goal: `http://localhost:5000` on the tablet's Chrome talks to the laptop's DrawDx server over USB, with no WiFi dependency. `localhost` is also required for the PointerEvent API's Secure Context checks — `http://192.168.x.x` does not count as secure.
 
 ## 1. Enable Developer Options on the tablet
 
