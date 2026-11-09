@@ -1,6 +1,6 @@
 # USB Debugging Setup — Galaxy Tab S10 FE
 
-Goal: `http://localhost:5000` on the tablet's Chrome talks to the laptop's DrawDx server over USB, with no WiFi dependency. `localhost` is also required for the PointerEvent API's Secure Context checks — `http://192.168.x.x` does not count as secure.
+Goal: `http://localhost:5000` on the tablet's Chrome talks to the laptop's PRISM server over USB, with no WiFi dependency. `localhost` is also required for the PointerEvent API's Secure Context checks — `http://192.168.x.x` does not count as secure.
 
 ## 1. Enable Developer Options on the tablet
 
@@ -54,7 +54,7 @@ http://localhost:5000
 
 1. On the laptop, open Chrome and go to `chrome://inspect/#devices`.
 2. The Galaxy Tab should appear with its open tabs listed underneath.
-3. Click **inspect** under the DrawDx tab.
+3. Click **inspect** under the PRISM tab.
 4. Full DevTools opens on the laptop, attached to the tablet's browser — `console.log` output from `app.js`, breakpoints, and live inspection of PointerEvent data all work from here.
 
 ## Fallbacks

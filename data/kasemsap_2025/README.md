@@ -1,6 +1,6 @@
 # Finger-tapping reference data: Kasemsap et al. 2025
 
-`Parkinson_data.xlsx` is the reference group for DrawDx's finger-tapping module. We redistribute it unchanged under its CC BY 4.0 licence.
+`Parkinson_data.xlsx` is the reference group for PRISM's finger-tapping module. We redistribute it unchanged under its CC BY 4.0 licence.
 
 ## Source and credit
 - **Dataset:** Kasemsap N. *Parkinson_data.xlsx*, figshare, version 3, published May 7, 2025.
@@ -27,7 +27,7 @@ Recording protocol:
 | `rp_diff5/7/10`, `lp_diff5/7/10` | peak amplitude of tap 1 minus tap 5 / 7 / 10, in percentage points (positive = taps shrinking) |
 | `tap_diff` | \|right − left\| tap count |
 
-## How DrawDx uses it
+## How PRISM uses it
 `tools/build_tapping_reference.py` reads this file and writes `01/tapping_reference.json`:
 - **group averages** for the tablet's comparison bars
 - **a score for each hand:** L2 logistic regression on that hand's tap count (speed), mean amplitude, amplitude SD and tap 1→10 drop. A person's result is their **worse hand**.
@@ -37,6 +37,6 @@ On held-out people (leave-one-person-out, both hands held out), the score reache
 
 **Why speed is scored.** A first version left tap count out, on the worry that it depends on age and setup. Our team check on the Pi camera (7 healthy people, 13 recordings) showed that version's score followed tapping speed (r = 0.74). Our testers' tap counts matched this study's healthy group (23.9 vs 24.4, worse hand), so speed was added: held-out AUC went from 0.818 to 0.912.
 
-**Fewer than N taps.** In this data, when a hand made fewer than N taps, `diffN` is tap 1 minus 0 (checked on all 9 such hands). DrawDx computes it the same way, so slow tapping still gets a result.
+**Fewer than N taps.** In this data, when a hand made fewer than N taps, `diffN` is tap 1 minus 0 (checked on all 9 such hands). PRISM computes it the same way, so slow tapping still gets a result.
 
-DrawDx's own tapping features are computed the same way as the paper's (see `kasemsap_features()` in `01/tapping_analysis.py`). The result is a screening comparison, not a diagnosis.
+PRISM's own tapping features are computed the same way as the paper's (see `kasemsap_features()` in `01/tapping_analysis.py`). The result is a screening comparison, not a diagnosis.

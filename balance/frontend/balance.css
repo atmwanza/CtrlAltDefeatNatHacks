@@ -1,4 +1,4 @@
-/* DrawDx balance test. Builds on the tapping panel's styles (tap-*) in static/style.css. */
+/* PRISM balance test. Builds on the tapping panel's styles (tap-*) in static/style.css. */
 
 .balance-only { display: none; }
 body.mode-balance .balance-only { display: inline-flex; }

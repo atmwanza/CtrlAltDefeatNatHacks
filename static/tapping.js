@@ -1,4 +1,4 @@
-// DrawDx finger-tapping prototype (MDS-UPDRS 3.4): tablet side.
+// PRISM finger-tapping prototype (MDS-UPDRS 3.4): tablet side.
 // The laptop backend drives the camera (Raspberry Pi, or the laptop webcam fallback);
 // this page only starts recordings, shows a preview and renders results. Loaded after
 // app.js, whose globals (canvasContainer, resultsPanel, mainEl, showDrawingView,

@@ -1,4 +1,4 @@
-// DrawDx frontend — spiral capture, telemetry, demo presets, results rendering.
+// PRISM frontend — spiral capture, telemetry, demo presets, results rendering.
 
 const canvasContainer = document.getElementById('canvas-container');
 const canvas = document.getElementById('spiral-canvas');
