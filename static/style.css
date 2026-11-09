@@ -951,17 +951,17 @@ button:focus-visible, a:focus-visible, summary:focus-visible, select:focus-visib
 .mode-switch .mode-btn.active { color: var(--primary); }
 
 /* ---------- PRISM logo: second row of the top bar, left of the spiral buttons ---------- */
-/* The PNG has white margins; these numbers crop to the logo itself (1680 x 428 px of 1903 x 729). */
+/* prism-mark.png is the logo artwork cropped to its edges (900 x 239), without the printed tagline:
+   the tagline in prism-logo.png has an older expansion of the name than the slides. */
 .topbar-logo, .overlay-logo {
   --logo-h: 44px;
   flex: 0 0 auto;
-  width: calc(var(--logo-h) * 1680 / 428);
+  width: calc(var(--logo-h) * 900 / 239);
   height: var(--logo-h);
-  background: url('/static/prism-logo.png') no-repeat;
-  background-size: calc(var(--logo-h) * 1903 / 428) auto;
-  background-position: calc(var(--logo-h) * -80 / 428) calc(var(--logo-h) * -200 / 428);
+  background: url('/static/prism-mark.png') no-repeat left center / contain;
 }
 
 /* start screen: the PRISM logo in place of the old "DrawDx" heading */
 .overlay-title { margin: 0 0 4px; line-height: 0; }
 .overlay-logo { --logo-h: 60px; display: block; }
+.overlay-tagline { margin: 8px 0 2px; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #2b3550; }

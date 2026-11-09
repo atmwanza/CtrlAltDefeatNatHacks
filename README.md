@@ -1,8 +1,8 @@
-<p align="center"><img src="static/prism-logo.png" alt="PRISM: Parkinson's Research through Interactive Screening of Movement" width="460"></p>
+<p align="center"><img src="static/prism-mark.png" alt="PRISM: Parkinson's Research through Integrated Sensing and Monitoring" width="460"></p>
 
 # PRISM
 
-PRISM (Parkinson's Research through Interactive Screening of Movement) is a low-cost screening prototype for Parkinson's disease. It has two short tests: a person draws a spiral with a stylus, and taps their fingers in front of a small camera. Each test is compared with published data from people with and without Parkinson's.
+PRISM (Parkinson's Research through Integrated Sensing and Monitoring) is a low-cost screening prototype for Parkinson's disease. It has two short tests: a person draws a spiral with a stylus, and taps their fingers in front of a small camera. Each test is compared with published data from people with and without Parkinson's.
 
 Built at **natHacks 2026** (Healthcare & Accessibility track) by team **Ctrl Alt Delete**.
 
