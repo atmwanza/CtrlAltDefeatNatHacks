@@ -34,6 +34,8 @@ UPLOAD_GRACE_S = 45       # recording + upload must finish within duration + thi
 MAX_JOBS = 30
 
 _capture = {'url': None, 'seen': 0.0, 'source': None, 'camera': None}
+# Other tests that borrow the camera (balance) register here: hand prefix -> handler(sid, data, meta)
+UPLOAD_HANDLERS = {}
 _jobs = {}
 _jobs_lock = threading.Lock()
 _analysis_lock = threading.Lock()   # one analysis at a time keeps the laptop responsive
@@ -96,6 +98,9 @@ async def tapping_upload(clip: UploadFile = File(...), meta: str = Form(...)):
     m = json.loads(meta)
     sid = m.get('session_id') or uuid.uuid4().hex[:8]
     data = await clip.read()
+    for prefix, handler in UPLOAD_HANDLERS.items():
+        if str(m.get('hand') or '').startswith(prefix):
+            return handler(sid, data, m)
     with _jobs_lock:
         known = sid in _jobs
     if not known:   # e.g. a manual recording started on the capture device itself
@@ -222,7 +227,7 @@ _LENGTH = re.compile(rb'Content-Length:\s*(\d+)', re.I)
 
 
 @router.get('/tapping/stream.mjpg')
-async def tapping_stream(request: Request):
+async def tapping_stream(request: Request, overlay: int = 1):
     if not _capture_ready():
         raise HTTPException(503, 'Camera not connected.')
     _stream['next'] += 1
@@ -253,7 +258,7 @@ async def tapping_stream(request: Request):
                             if len(buf) < start + n:
                                 break
                             jpeg, buf = buf[start:start + n], buf[start + n:]
-                            if OVERLAY and not _recording_now():
+                            if OVERLAY and overlay and not _recording_now():
                                 try:
                                     jpeg = await asyncio.to_thread(_annotate, jpeg)
                                 except Exception as e:   # never let the overlay kill the preview
