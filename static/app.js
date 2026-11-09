@@ -403,7 +403,7 @@ async function submitDrawing(source) {
   };
 
   analyzeBtn.disabled = true;
-  analyzeBtn.textContent = 'Analyzing…';
+  analyzeBtn.innerHTML = `${(window.tiIcon ? tiIcon('activity') : '')}Analyzing…`;
   try {
     const res = await fetch(ANALYZE_ENDPOINT, {
       method: 'POST',
@@ -416,7 +416,7 @@ async function submitDrawing(source) {
   } catch (err) {
     alert(`Analysis failed: ${err.message}`);
   } finally {
-    analyzeBtn.textContent = 'Analyze Spiral';
+    analyzeBtn.innerHTML = `${(window.tiIcon ? tiIcon('activity') : '')}Analyze Spiral`;
     maybeEnableAnalyze();
   }
 }
@@ -431,6 +431,23 @@ function riskBand(score) {
     return { cls: 'band-moderate', label: 'Borderline: consider a retest' };
   }
   return { cls: 'band-high', label: 'Elevated: consider a clinical review' };
+}
+
+// Band look shared with the tapping result: a Tabler tint, an icon and a word, never colour alone.
+const BAND_UI = {
+  'band-low': { word: 'Typical', icon: 'circle-check', bg: 'bg-green-lt' },
+  'band-moderate': { word: 'Borderline', icon: 'alert-triangle', bg: 'bg-yellow-lt' },
+  'band-high': { word: 'Elevated', icon: 'alert-octagon', bg: 'bg-red-lt' },
+};
+function bandUi(cls) { return BAND_UI[cls] || BAND_UI['band-low']; }
+function bandHtml(cls, label) {
+  const ui = bandUi(cls);
+  let detail = String(label || '');
+  if (detail.includes(':')) detail = detail.slice(detail.indexOf(':') + 1).trim();
+  detail = detail.charAt(0).toUpperCase() + detail.slice(1);
+  const icon = window.tiIcon ? tiIcon(ui.icon) : '';
+  return `<span class="dx-band-word">${icon}${ui.word}</span>`
+    + (detail ? `<span class="dx-band-detail">${escapeHtml(detail)}</span>` : '');
 }
 
 function pctBand(pct) {
@@ -450,8 +467,9 @@ function displayResults(data) {
   countUp(scoreEl, Math.round(data.risk_score));
   const band = riskBand(data.risk_score);
   scoreEl.className = band.cls;
-  bandEl.textContent = band.label;
-  bandEl.className = band.cls;
+  bandEl.innerHTML = bandHtml(band.cls, band.label);
+  bandEl.className = `dx-band ${band.cls}`;
+  document.getElementById('risk-score-side').className = `card dx-banner ${bandUi(band.cls).bg}`;
 
   const grid = document.getElementById('features-grid');
   grid.innerHTML = '';
@@ -462,12 +480,12 @@ function displayResults(data) {
   for (const [key, f] of Object.entries(data.features)) {
     const card = document.createElement('div');
     const band2 = f.scored === false ? 'pct-unscored' : pctBand(f.percentile_pd);
-    card.className = `feature-card ${band2}`;
+    card.className = `feature-card card ${band2}`;
     const pinLeft = gaugePosition(f);
     const fmt = v => escapeHtml(formatFeatureValue(key, v));
     const tag = f.scored === false ? '<span class="feature-tag">not in score</span>' : '';
-    card.innerHTML = `
-      <div class="feature-name">${escapeHtml(featureLabel(key))}${tag}</div>
+    card.innerHTML = `<div class="card-body">
+      <div class="feature-name card-title">${escapeHtml(featureLabel(key))}${tag}</div>
       <div class="feature-sub">${escapeHtml(featureDescription(key))}</div>
       <div class="feature-value">${fmt(f.value)}</div>
       <div class="gauge-track">
@@ -479,7 +497,7 @@ function displayResults(data) {
         <span style="left:${GAUGE_HEALTHY}%">Healthy avg ${fmt(f.ctrl_mean)}</span>
         <span style="left:${GAUGE_PD}%">PD avg ${fmt(f.pd_mean)}</span>
       </div>
-    `;
+    </div>`;
     grid.appendChild(card);
   }
 

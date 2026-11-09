@@ -15,14 +15,6 @@ body.mode-balance .spiral-only { display: none !important; }
 #bal-preview.live { visibility: visible; }
 
 .bal-height { display: flex; align-items: center; gap: 8px; font-size: 15px; }
-.bal-height input {
-  width: 90px;
-  min-height: 40px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font: inherit;
-}
 
 .bal-label { margin: 0 0 12px; font-size: 16px; font-weight: 700; }
 .bal-label.low { color: var(--low); }
@@ -34,9 +26,6 @@ body.mode-balance .spiral-only { display: none !important; }
 /* ---------- balance study: form, consent, saved card ---------- */
 .bal-form { display: flex; flex-wrap: wrap; gap: 10px 16px; font-size: 15px; }
 .bal-form label { display: flex; align-items: center; gap: 8px; }
-.bal-form select {
-  min-height: 40px; padding: 0 8px; border: 1px solid var(--border); border-radius: 8px; font: inherit; background: #fff;
-}
 .bal-consent { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.4; cursor: pointer; }
 .bal-consent input { width: 22px; height: 22px; margin-top: 1px; flex: 0 0 auto; }
 .bal-saved {
@@ -58,8 +47,9 @@ body.mode-balance .spiral-only { display: none !important; }
   letter-spacing: 0.05em;
 }
 .bal-plan { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
-.bal-plan-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
-.bal-plan-card h3 { margin: 0 0 6px; font-size: 15px; color: var(--primary); }
+.bal-plan-card .card-body { padding: 14px 16px; }
+.bal-plan-card .card-title { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 15px; color: var(--primary); }
+.bal-plan-card .card-title .icon { width: 20px; height: 20px; }
 .bal-plan-card p { margin: 0; font-size: 14px; line-height: 1.5; }
 .bal-plan-card.bal-status { border-left: 6px solid var(--primary); }
 .bal-pilot { margin-bottom: 16px; }
@@ -69,3 +59,16 @@ body.mode-balance .spiral-only { display: none !important; }
 }
 .bal-pilot[open] > summary { margin-bottom: 14px; }
 @media (max-width: 900px) { .bal-plan { grid-template-columns: 1fr; } }
+
+/* ---------- Tabler restyle: form controls and the pilot drawer card ---------- */
+.bal-form .form-select { width: auto; min-width: 150px; min-height: 48px; font-size: 15px; }
+.bal-height .form-control { width: 100px; min-height: 48px; font-size: 15px; }
+.bal-consent .form-check-input { width: 24px; height: 24px; margin: 0; flex: 0 0 auto; }
+.bal-pilot-card { margin-bottom: 16px; }
+.bal-pilot-card .bal-pilot { margin: 0; }
+.bal-pilot-card .bal-pilot > summary {
+  min-height: 52px; gap: 8px; padding: 0 16px; border: 0; border-radius: inherit; background: transparent;
+}
+.bal-pilot-card .bal-pilot > summary .icon { width: 20px; height: 20px; }
+.bal-pilot-card .bal-pilot[open] { padding: 0 16px 16px; }
+.bal-pilot-card .bal-pilot[open] > summary { margin: 0 -16px 14px; border-bottom: 1px solid var(--border); }

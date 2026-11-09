@@ -28,6 +28,7 @@
   const leftBtn = $('tap-left-btn');
   const progress = $('tap-progress');
   const progressBar = $('tap-progress-bar');
+  const progressLabel = $('tap-progress-label');
   const message = $('tap-message');
   const resultsEl = $('tap-results');
   const asymEl = $('tap-asymmetry');
@@ -159,8 +160,14 @@
     leftBtn.disabled = disabled;
     // two-step flow: a finished hand turns green, the next one pulses
     const done = h => !!(results[h] && results[h].valid);
-    rightBtn.textContent = done('right') ? '✓ Right hand done · redo' : '① Start right hand';
-    leftBtn.textContent = done('left') ? '✓ Left hand done · redo' : '② Start left hand';
+    const ic = n => (window.tiIcon ? tiIcon(n) : '');
+    rightBtn.innerHTML = done('right') ? `${ic('check')}Right hand done · redo` : `${ic('hand-finger')}Start right hand`;
+    leftBtn.innerHTML = done('left') ? `${ic('check')}Left hand done · redo` : `${ic('hand-finger')}Start left hand`;
+    const current = !done('right') ? 0 : !done('left') ? 1 : 2;
+    document.querySelectorAll('#tap-steps .step-item').forEach((el, i) => {
+      el.classList.toggle('active', i === current);
+      if (i === current) el.setAttribute('aria-current', 'step'); else el.removeAttribute('aria-current');
+    });
     rightBtn.classList.toggle('done', done('right'));
     leftBtn.classList.toggle('done', done('left'));
     rightBtn.classList.toggle('next', !running && !done('right') && done('left'));
@@ -239,6 +246,7 @@
         const elapsed = (performance.now() - t0) / 1000;
         const f = Math.min(1, elapsed / TAP_SECONDS);
         progressBar.style.width = `${f * 100}%`;
+        if (progressLabel) progressLabel.textContent = f >= 1 ? 'Done' : `${Math.ceil(TAP_SECONDS - elapsed)} s left`;
         if (elapsed > 0.8) {   // GO has been seen: shrink to a pill so the live view stays visible
           overlay.classList.add('rec');
           overlay.textContent = `● REC  ${Math.max(0, TAP_SECONDS - elapsed).toFixed(0)}s`;
@@ -285,6 +293,7 @@
     overlay.classList.remove('rec');
     progress.classList.add('hidden');
     progressBar.style.width = '0%';
+    if (progressLabel) progressLabel.textContent = '';
     setMessage(text, kind);
     updateButtons();
     if (!streaming) startPreview();
@@ -321,7 +330,7 @@
 
   function handCard(hand, r) {
     const card = document.createElement('div');
-    card.className = `tap-card${r.valid ? '' : ' invalid'}`;
+    card.className = `tap-card card${r.valid ? '' : ' invalid'}`;
     const metrics = METRICS.filter(m => Number.isFinite(r[m.key])).map(m => `
       <div class="tap-metric">
         <div class="tap-metric-label">${escapeHtml(m.label)}</div>
@@ -339,10 +348,10 @@
     const compare = r.valid && Array.isArray(r.comparison) ? r.comparison.map(compareRow).join('') : '';
     const state = r.valid
       ? (r.severity ? severityPill(r.severity) : '')
-      : '<span class="tap-card-state">Not reliable</span>';
-    card.innerHTML = `
+      : `<span class="tap-card-state badge bg-yellow-lt">${window.tiIcon ? tiIcon('alert-triangle') : ''}Not reliable</span>`;
+    card.innerHTML = `<div class="card-body">
       <div class="tap-card-head">
-        <h3>${capitalise(hand)} hand</h3>
+        <h3 class="card-title">${capitalise(hand)} hand</h3>
         ${state}
       </div>
       ${warnings ? `<ul class="tap-warnings">${warnings}</ul>` : ''}
@@ -354,7 +363,8 @@
         </div>` : ''}
         ${metrics ? `<div class="tap-metrics">${metrics}</div>` : ''}
         <div class="tap-quality">${escapeHtml(quality)}</div>
-      </details>`;
+      </details>
+    </div>`;
     // the charts live in a closed drawer (no size until it opens), so draw them on open
     const drawer = card.querySelector('details');
     drawer.addEventListener('toggle', () => {
@@ -369,9 +379,9 @@
   // this hand's tapping, from its speed and opening angle over the first 10 taps.
   function severityPill(s) {
     const mild = s.band === '2+';
-    return `<span class="sev-pill ${mild ? 'sev-mild' : 'sev-normal'}"
-      title="Severity estimate, MDS-UPDRS 3.4 (Islam et al. 2023)"><span class="sev-pill-label">Severity</span>
-      ${mild ? '▲' : '✓'} ${escapeHtml(s.label)}</span>`;
+    const icon = window.tiIcon ? tiIcon(mild ? 'alert-triangle' : 'circle-check') : '';
+    return `<span class="sev-pill badge ${mild ? 'bg-yellow-lt sev-mild' : 'bg-green-lt sev-normal'}"
+      title="Severity estimate, MDS-UPDRS 3.4 (Islam et al. 2023)"><span class="sev-pill-label">Severity</span>${icon}${escapeHtml(s.label)}</span>`;
   }
 
   function severityBadge(s) {
@@ -469,11 +479,11 @@
       : `The ${s.worse_hand} hand counts; no single measure stood out.`;
     const match = handMatch();
     const vcls = { 'band-low': 'v-low', 'band-moderate': 'v-moderate', 'band-high': 'v-high' }[band.cls] || '';
-    scoreEl.className = `tap-score verdict ${vcls}`;
+    scoreEl.className = `tap-score verdict card dx-banner ${bandUi(band.cls).bg} ${vcls}`;
     scoreEl.innerHTML = `
       <div class="verdict-main">
         <div class="verdict-kicker">Tapping result</div>
-        <div class="verdict-band ${band.cls}">${escapeHtml(band.label)}</div>
+        <div class="verdict-band dx-band ${band.cls}">${bandHtml(band.cls, band.label)}</div>
         <div class="verdict-why">${escapeHtml(reason)}</div>
       </div>
       <div class="verdict-stats">
@@ -489,7 +499,7 @@
           <div class="verdict-mid">${match.speed}% · ${match.size}%</div>
           <div class="verdict-cap">Left–right match (speed · size)</div>
         </div>` : ''}
-        <button class="btn verdict-retest" type="button">↻ Retest</button>
+        <button class="btn verdict-retest" type="button">${window.tiIcon ? tiIcon('refresh') : ''}Retest</button>
       </div>
       <div class="verdict-scale">Under ${s.bands.typical_below} typical · ${s.bands.typical_below}–${s.bands.elevated_from - 1} borderline ·
         ${s.bands.elevated_from}+ elevated · a probability of matching the Parkinson&#39;s group (50 = equally likely either group),
@@ -497,7 +507,7 @@
     scoreEl.querySelector('.verdict-retest').addEventListener('click', clearResults);
     scoreEl.classList.remove('hidden');
     countUp(scoreEl.querySelector('.verdict-num'), s.score);
-    scoreEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scoreEl.scrollIntoView({ behavior: (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'), block: 'start' });
     // sources and validation, once, in the footer
     const sev = (R.severity || L.severity || {}).validation;
     if (footerEl) {

@@ -26,10 +26,10 @@
 
   const balanceTab = document.createElement('button');
   balanceTab.id = 'mode-balance-btn';
-  balanceTab.className = 'mode-btn';
+  balanceTab.className = 'mode-btn nav-link';
   balanceTab.setAttribute('role', 'tab');
   balanceTab.setAttribute('aria-selected', 'false');
-  balanceTab.textContent = 'Balance (planned)';
+  balanceTab.innerHTML = `${window.tiIcon ? tiIcon('walk') : ''}Balance (planned)`;
   modeSwitch.appendChild(balanceTab);
 
   const cameraBadge = document.createElement('span');
@@ -41,6 +41,7 @@
   const panel = document.createElement('section');
   panel.id = 'balance-panel';
   panel.className = 'hidden';
+  const ic = n => (window.tiIcon ? tiIcon(n) : '');
   panel.innerHTML = `
     <div class="tap-header">
       <div>
@@ -51,39 +52,40 @@
       <span class="tap-proto">Future study</span>
     </div>
     <div class="bal-plan">
-      <div class="bal-plan-card">
-        <h3>Why</h3>
+      <div class="bal-plan-card card"><div class="card-body">
+        <h3 class="card-title">${ic('bulb')}Why</h3>
         <p>Balance problems (postural instability) are a key sign of Parkinson's. Every public balance dataset we
           found was recorded on a lab force plate; we found <b>no camera-based balance data from people with
           Parkinson's</b>, so a camera tool has nothing to be checked against yet.</p>
-      </div>
-      <div class="bal-plan-card">
-        <h3>Who</h3>
+      </div></div>
+      <div class="bal-plan-card card"><div class="card-body">
+        <h3 class="card-title">${ic('users')}Who</h3>
         <p>Healthy volunteers and people with Parkinson's, recruited with <b>research ethics approval</b> and
           informed consent, for example through a movement-disorders clinic.</p>
-      </div>
-      <div class="bal-plan-card">
-        <h3>Protocol</h3>
+      </div></div>
+      <div class="bal-plan-card card"><div class="card-body">
+        <h3 class="card-title">${ic('clipboard-list')}Protocol</h3>
         <p>Copied from the published Parkinson's balance dataset (de Oliveira et al. 2022): stand still, heels about
           10 cm apart, <b>30 s eyes open, then 30 s eyes closed</b>, one camera 2 m away.</p>
-      </div>
-      <div class="bal-plan-card">
-        <h3>What we'd measure</h3>
+      </div></div>
+      <div class="bal-plan-card card"><div class="card-body">
+        <h3 class="card-title">${ic('ruler-measure')}What we'd measure</h3>
         <p>Side-to-side sway, sway speed, and how much sway rises when the eyes close. Then compare healthy people
           with people with Parkinson's, and with the published force-plate data.</p>
-      </div>
-      <div class="bal-plan-card">
-        <h3>Privacy</h3>
+      </div></div>
+      <div class="bal-plan-card card"><div class="card-body">
+        <h3 class="card-title">${ic('lock')}Privacy</h3>
         <p>No names and no video: numbers only, under an anonymous ID. Participants can withdraw at any time.</p>
-      </div>
-      <div class="bal-plan-card bal-status">
-        <h3>Status</h3>
+      </div></div>
+      <div class="bal-plan-card bal-status card"><div class="card-body">
+        <h3 class="card-title">${ic('flag')}Status</h3>
         <p><b>Built:</b> camera recording, body tracking (MediaPipe Pose), sway analysis (centre-of-mass model,
           quality checks), consent and anonymous storage.<br><b>Not started:</b> data collection.</p>
-      </div>
+      </div></div>
     </div>
+    <div class="card bal-pilot-card">
     <details id="bal-pilot" class="bal-pilot">
-      <summary>Try the recorder (pilot, for our team)</summary>
+      <summary>${ic('camera')}Try the recorder (pilot, for our team)</summary>
     <div class="tap-grid">
       <div class="tap-camera">
         <div class="tap-preview-wrap">
@@ -99,28 +101,31 @@
           <li>Stand still: <strong>30 s eyes open, then 30 s eyes closed</strong>. A voice tells you when (sound on).</li>
         </ol>
         <div class="bal-form">
-          <label>Age <select id="bal-age">
+          <label>Age <select id="bal-age" class="form-select">
             <option value="">choose…</option><option>18-29</option><option>30-44</option><option>45-59</option>
             <option>60-74</option><option>75+</option><option>prefer not to say</option></select></label>
-          <label>Sex <select id="bal-sex">
+          <label>Sex <select id="bal-sex" class="form-select">
             <option value="">skip</option><option>female</option><option>male</option><option>other</option>
             <option>prefer not to say</option></select></label>
           <label class="bal-height">Height
-            <input id="bal-height" type="number" inputmode="numeric" min="100" max="230" value="170"> cm</label>
+            <input id="bal-height" class="form-control" type="number" inputmode="numeric" min="100" max="230" value="170"> cm</label>
         </div>
-        <label class="bal-consent"><input id="bal-consent" type="checkbox">
+        <label class="bal-consent"><input id="bal-consent" class="form-check-input" type="checkbox">
           <span>I agree to my <b>anonymous numbers</b> (no name, no video) being saved for this student project's
             research. I can ask for them to be deleted.</span></label>
         <div class="tap-buttons">
           <button id="bal-start-btn" class="btn btn-primary">Start recording (2 × 30 s)</button>
         </div>
-        <div id="bal-progress" class="tap-progress hidden"><div id="bal-progress-bar" class="tap-progress-bar"></div></div>
+        <div id="bal-progress" class="tap-progress hidden">
+          <div class="progress progress-lg" aria-label="Recording time"><div id="bal-progress-bar" class="progress-bar"></div></div>
+        </div>
         <div id="bal-message" class="tap-message" role="status"></div>
       </div>
     </div>
     <div id="bal-results"></div>
     <div id="bal-dataset" class="bal-dataset"></div>
     </details>
+    </div>
     <div class="tap-footer">ⓘ A planned student study, not a medical test. Protocol after de Oliveira et al., Front Neurosci
       2022 (public Parkinson's balance dataset, force plate, CC0) and Santos &amp; Duarte, PeerJ 2016 (public healthy-adult
       dataset). Camera method (body tracking + de Leva centre-of-mass model) as in Sonar et al., Sensors 2026. One camera
@@ -523,7 +528,7 @@
       <div class="tap-results">${cards}</div>`;
     $('bal-withdraw').addEventListener('click', () => withdraw(data.participant));
     renderDataset(data.summary);
-    resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    resultsEl.scrollIntoView({ behavior: (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'), block: 'start' });
   }
 
   async function withdraw(pid) {

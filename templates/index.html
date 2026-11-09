@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>PRISM — Parkinson's Screening</title>
 <!-- ?v= forces tablets to fetch new code on a normal refresh; bump it after editing static/ -->
-<link rel="stylesheet" href="/static/style.css?v=20261109b">
-<link rel="stylesheet" href="/balance/static/balance.css?v=20261109b">
+<!-- Tabler UI kit (MIT, static/vendor/tabler/LICENSE), CSS only and served locally; loaded first so our own rules win -->
+<link rel="stylesheet" href="/static/vendor/tabler/tabler.min.css?v=1.7.4">
+<link rel="stylesheet" href="/static/style.css?v=20261109c">
+<link rel="stylesheet" href="/balance/static/balance.css?v=20261109c">
 </head>
 <body>
 
@@ -20,16 +22,16 @@
       <li>Keeping that pressure, trace the gray spiral to the <strong>FINISH</strong> ring in one stroke, at a steady pace (about 15–30 seconds).</li>
       <li>Once you reach the finish ring, tap <strong>Analyze Spiral</strong>.</li>
     </ol>
-    <button id="begin-drawing-btn" class="btn btn-primary">Begin Drawing</button>
+    <button id="begin-drawing-btn" class="btn btn-primary btn-lg"><span data-icon="ballpen"></span>Begin Drawing</button>
   </div>
 </div>
 
-<header class="topbar">
+<header class="topbar navbar">
   <div class="topbar-left">
-    <div class="mode-switch" role="tablist" aria-label="Test">
-      <button id="mode-spiral-btn" class="mode-btn active" role="tab" aria-selected="true">Spiral</button>
-      <button id="mode-tapping-btn" class="mode-btn" role="tab" aria-selected="false">Tapping</button>
-    </div>
+    <nav class="mode-switch nav nav-segmented nav-lg" role="tablist" aria-label="Test">
+      <button id="mode-spiral-btn" class="mode-btn nav-link active" role="tab" aria-selected="true"><span data-icon="ballpen"></span>Spiral</button>
+      <button id="mode-tapping-btn" class="mode-btn nav-link" role="tab" aria-selected="false"><span data-icon="hand-finger"></span>Tapping</button>
+    </nav>
     <span id="mock-badge" class="mock-badge hidden spiral-only">MOCK DATA</span>
     <select id="device-select" class="device-select spiral-only" aria-label="Tablet type">
       <option value="auto">Auto-detect</option>
@@ -41,10 +43,10 @@
   </div>
   <div class="topbar-logo" role="img" aria-label="PRISM: Parkinson's Research through Integrated Sensing and Monitoring"></div>
   <div class="topbar-right">
-    <button id="demo-healthy-btn" class="btn btn-ghost spiral-only">▶ Demo: Healthy</button>
-    <button id="demo-pd-btn" class="btn btn-ghost spiral-only">▶ Demo: PD</button>
-    <button id="clear-btn" class="btn btn-ghost spiral-only">Clear</button>
-    <button id="analyze-btn" class="btn btn-primary spiral-only" disabled>Analyze Spiral</button>
+    <button id="demo-healthy-btn" class="btn spiral-only"><span data-icon="player-play"></span>Demo: Healthy</button>
+    <button id="demo-pd-btn" class="btn spiral-only"><span data-icon="player-play"></span>Demo: PD</button>
+    <button id="clear-btn" class="btn spiral-only"><span data-icon="eraser"></span>Clear</button>
+    <button id="analyze-btn" class="btn btn-primary spiral-only" disabled><span data-icon="activity"></span>Analyze Spiral</button>
   </div>
 </header>
 
@@ -55,7 +57,7 @@
   </div>
 
   <section id="results-panel" class="hidden">
-    <div id="risk-score-block">
+    <div id="risk-score-block" class="card">
       <div id="risk-score-side">
         <div class="risk-index-label">Screening result</div>
         <div id="risk-band-label"></div>
@@ -87,7 +89,7 @@
       Screening tool only. Not a clinical diagnosis. Please discuss any concerns with a clinician.
     </div>
 
-    <button id="draw-again-btn" class="btn btn-primary">Draw Again</button>
+    <button id="draw-again-btn" class="btn btn-primary"><span data-icon="refresh"></span>Draw Again</button>
   </section>
 
   <section id="tapping-panel" class="hidden">
@@ -113,11 +115,19 @@
           <li>At <strong>GO</strong>, tap your index finger on your thumb <strong>as fast and as big as you can</strong>, opening wide from the very first tap.</li>
           <li>Keep tapping until the bar finishes (10 seconds). Then do the other hand.</li>
         </ol>
+        <div id="tap-steps" class="steps steps-counter steps-green" aria-label="Tapping steps">
+          <span class="step-item active" aria-current="step">Right hand</span>
+          <span class="step-item">Left hand</span>
+          <span class="step-item">Result</span>
+        </div>
         <div class="tap-buttons">
           <button id="tap-right-btn" class="btn btn-primary">① Start right hand</button>
           <button id="tap-left-btn" class="btn btn-primary">② Start left hand</button>
         </div>
-        <div id="tap-progress" class="tap-progress hidden"><div id="tap-progress-bar" class="tap-progress-bar"></div></div>
+        <div id="tap-progress" class="tap-progress hidden">
+          <div class="progress progress-lg" aria-label="Recording time"><div id="tap-progress-bar" class="progress-bar"></div></div>
+          <div id="tap-progress-label" class="tap-progress-label" aria-live="polite"></div>
+        </div>
         <div id="tap-message" class="tap-message" role="status"></div>
       </div>
     </div>
@@ -126,7 +136,7 @@
     <div id="tap-results" class="tap-results"></div>
     <div id="tap-asymmetry" class="tap-asymmetry hidden"></div>
 
-    <button id="tap-clear-btn" class="btn btn-primary hidden">Clear and start over</button>
+    <button id="tap-clear-btn" class="btn btn-primary hidden"><span data-icon="refresh"></span>Clear and start over</button>
 
     <div id="tap-footer" class="tap-footer">
       Compared with 47 healthy people and 53 people with Parkinson's (Kasemsap et al., PLOS ONE 2025; data CC BY 4.0).
@@ -136,8 +146,9 @@
   </section>
 </main>
 
-<script src="/static/app.js?v=20261109b"></script>
-<script src="/static/tapping.js?v=20261109b"></script>
-<script src="/balance/static/balance.js?v=20261109b"></script>
+<script src="/static/icons.js?v=20261109c"></script>
+<script src="/static/app.js?v=20261109c"></script>
+<script src="/static/tapping.js?v=20261109c"></script>
+<script src="/balance/static/balance.js?v=20261109c"></script>
 </body>
 </html>
