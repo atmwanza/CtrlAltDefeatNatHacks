@@ -7,8 +7,8 @@
 <!-- ?v= forces tablets to fetch new code on a normal refresh; bump it after editing static/ -->
 <!-- Tabler UI kit (MIT, static/vendor/tabler/LICENSE), CSS only and served locally; loaded first so our own rules win -->
 <link rel="stylesheet" href="/static/vendor/tabler/tabler.min.css?v=1.7.4">
-<link rel="stylesheet" href="/static/style.css?v=20261108o">
-<link rel="stylesheet" href="/balance/static/balance.css?v=20261108o">
+<link rel="stylesheet" href="/static/style.css?v=20261108p">
+<link rel="stylesheet" href="/balance/static/balance.css?v=20261108p">
 </head>
 <body>
 
@@ -114,11 +114,19 @@
           <li>At <strong>GO</strong>, tap your index finger on your thumb <strong>as fast and as big as you can</strong>, opening wide from the very first tap.</li>
           <li>Keep tapping until the bar finishes (10 seconds). Then do the other hand.</li>
         </ol>
+        <div id="tap-steps" class="steps steps-counter steps-green" aria-label="Tapping steps">
+          <span class="step-item active" aria-current="step">Right hand</span>
+          <span class="step-item">Left hand</span>
+          <span class="step-item">Result</span>
+        </div>
         <div class="tap-buttons">
           <button id="tap-right-btn" class="btn btn-primary">① Start right hand</button>
           <button id="tap-left-btn" class="btn btn-primary">② Start left hand</button>
         </div>
-        <div id="tap-progress" class="tap-progress hidden"><div id="tap-progress-bar" class="tap-progress-bar"></div></div>
+        <div id="tap-progress" class="tap-progress hidden">
+          <div class="progress progress-lg" aria-label="Recording time"><div id="tap-progress-bar" class="progress-bar"></div></div>
+          <div id="tap-progress-label" class="tap-progress-label" aria-live="polite"></div>
+        </div>
         <div id="tap-message" class="tap-message" role="status"></div>
       </div>
     </div>
@@ -137,9 +145,9 @@
   </section>
 </main>
 
-<script src="/static/icons.js?v=20261108o"></script>
-<script src="/static/app.js?v=20261108o"></script>
-<script src="/static/tapping.js?v=20261108o"></script>
-<script src="/balance/static/balance.js?v=20261108o"></script>
+<script src="/static/icons.js?v=20261108p"></script>
+<script src="/static/app.js?v=20261108p"></script>
+<script src="/static/tapping.js?v=20261108p"></script>
+<script src="/balance/static/balance.js?v=20261108p"></script>
 </body>
 </html>

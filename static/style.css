@@ -302,12 +302,7 @@ main {
   margin-bottom: 20px;
 }
 
-.feature-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px;
-}
+.feature-card .card-body { padding: 14px; }
 
 .feature-name {
   font-size: 12px;
@@ -611,8 +606,10 @@ body.mode-tapping .spiral-only { display: none !important; }
 .tap-buttons .btn { flex: 1 1 160px; min-height: 52px; font-size: 16px; }
 .btn:disabled { opacity: 0.5; cursor: default; }
 
-.tap-progress { height: 10px; border-radius: 999px; background: var(--bg); overflow: hidden; }
-.tap-progress-bar { width: 0%; height: 100%; background: var(--primary); }
+.tap-progress { display: flex; align-items: center; gap: 12px; }
+.tap-progress .progress { flex: 1 1 auto; height: 12px; }
+.tap-progress .progress-bar { width: 0%; }
+.tap-progress-label { flex: 0 0 auto; min-width: 72px; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
 
 .tap-message { min-height: 22px; font-size: 15px; color: var(--text); }
 .tap-message.live { color: var(--primary); font-weight: 700; }
@@ -627,12 +624,7 @@ body.mode-tapping .spiral-only { display: none !important; }
   margin-bottom: 16px;
 }
 
-.tap-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px;
-}
+.tap-card .card-body { padding: 16px; }
 
 .tap-card.invalid { border-color: var(--moderate); }
 
@@ -933,3 +925,11 @@ body { font-variant-numeric: tabular-nums; }
 }
 .sev-pill .icon, .tap-card-state .icon { width: 18px; height: 18px; }
 .sev-pill-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.85; }
+
+/* cards: Tabler card > card-body; our titles keep their size */
+.feature-card .card-title { margin: 0 0 2px; }
+.tap-card .card-title { margin: 0; font-size: 18px; }
+.tap-card.invalid { border-color: #c98a00; }
+
+/* tapping stepper: Tabler steps (right hand -> left hand -> result) */
+#tap-steps { margin: 4px 0 14px; font-size: 14px; font-weight: 600; --tblr-steps-dot-size: 1.75rem; }

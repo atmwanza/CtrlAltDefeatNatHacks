@@ -41,6 +41,7 @@
   const panel = document.createElement('section');
   panel.id = 'balance-panel';
   panel.className = 'hidden';
+  const ic = n => (window.tiIcon ? tiIcon(n) : '');
   panel.innerHTML = `
     <div class="tap-header">
       <div>
@@ -51,36 +52,36 @@
       <span class="tap-proto">Future study</span>
     </div>
     <div class="bal-plan">
-      <div class="bal-plan-card">
-        <h3>Why</h3>
+      <div class="bal-plan-card card"><div class="card-body">
+        <h3 class="card-title">${ic('bulb')}Why</h3>
         <p>Balance problems (postural instability) are a key sign of Parkinson's. Every public balance dataset we
           found was recorded on a lab force plate; we found <b>no camera-based balance data from people with
           Parkinson's</b>, so a camera tool has nothing to be checked against yet.</p>
-      </div>
-      <div class="bal-plan-card">
-        <h3>Who</h3>
+      </div></div>
+      <div class="bal-plan-card card"><div class="card-body">
+        <h3 class="card-title">${ic('users')}Who</h3>
         <p>Healthy volunteers and people with Parkinson's, recruited with <b>research ethics approval</b> and
           informed consent, for example through a movement-disorders clinic.</p>
-      </div>
-      <div class="bal-plan-card">
-        <h3>Protocol</h3>
+      </div></div>
+      <div class="bal-plan-card card"><div class="card-body">
+        <h3 class="card-title">${ic('clipboard-list')}Protocol</h3>
         <p>Copied from the published Parkinson's balance dataset (de Oliveira et al. 2022): stand still, heels about
           10 cm apart, <b>30 s eyes open, then 30 s eyes closed</b>, one camera 2 m away.</p>
-      </div>
-      <div class="bal-plan-card">
-        <h3>What we'd measure</h3>
+      </div></div>
+      <div class="bal-plan-card card"><div class="card-body">
+        <h3 class="card-title">${ic('ruler-measure')}What we'd measure</h3>
         <p>Side-to-side sway, sway speed, and how much sway rises when the eyes close. Then compare healthy people
           with people with Parkinson's, and with the published force-plate data.</p>
-      </div>
-      <div class="bal-plan-card">
-        <h3>Privacy</h3>
+      </div></div>
+      <div class="bal-plan-card card"><div class="card-body">
+        <h3 class="card-title">${ic('lock')}Privacy</h3>
         <p>No names and no video: numbers only, under an anonymous ID. Participants can withdraw at any time.</p>
-      </div>
-      <div class="bal-plan-card bal-status">
-        <h3>Status</h3>
+      </div></div>
+      <div class="bal-plan-card bal-status card"><div class="card-body">
+        <h3 class="card-title">${ic('flag')}Status</h3>
         <p><b>Built:</b> camera recording, body tracking (MediaPipe Pose), sway analysis (centre-of-mass model,
           quality checks), consent and anonymous storage.<br><b>Not started:</b> data collection.</p>
-      </div>
+      </div></div>
     </div>
     <details id="bal-pilot" class="bal-pilot">
       <summary>Try the recorder (pilot, for our team)</summary>
@@ -114,7 +115,9 @@
         <div class="tap-buttons">
           <button id="bal-start-btn" class="btn btn-primary">Start recording (2 × 30 s)</button>
         </div>
-        <div id="bal-progress" class="tap-progress hidden"><div id="bal-progress-bar" class="tap-progress-bar"></div></div>
+        <div id="bal-progress" class="tap-progress hidden">
+          <div class="progress progress-lg" aria-label="Recording time"><div id="bal-progress-bar" class="progress-bar"></div></div>
+        </div>
         <div id="bal-message" class="tap-message" role="status"></div>
       </div>
     </div>

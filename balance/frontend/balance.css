@@ -58,8 +58,9 @@ body.mode-balance .spiral-only { display: none !important; }
   letter-spacing: 0.05em;
 }
 .bal-plan { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-bottom: 16px; }
-.bal-plan-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
-.bal-plan-card h3 { margin: 0 0 6px; font-size: 15px; color: var(--primary); }
+.bal-plan-card .card-body { padding: 14px 16px; }
+.bal-plan-card .card-title { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 15px; color: var(--primary); }
+.bal-plan-card .card-title .icon { width: 20px; height: 20px; }
 .bal-plan-card p { margin: 0; font-size: 14px; line-height: 1.5; }
 .bal-plan-card.bal-status { border-left: 6px solid var(--primary); }
 .bal-pilot { margin-bottom: 16px; }

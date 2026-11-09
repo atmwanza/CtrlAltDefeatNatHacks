@@ -476,12 +476,12 @@ function displayResults(data) {
   for (const [key, f] of Object.entries(data.features)) {
     const card = document.createElement('div');
     const band2 = f.scored === false ? 'pct-unscored' : pctBand(f.percentile_pd);
-    card.className = `feature-card ${band2}`;
+    card.className = `feature-card card ${band2}`;
     const pinLeft = gaugePosition(f);
     const fmt = v => escapeHtml(formatFeatureValue(key, v));
     const tag = f.scored === false ? '<span class="feature-tag">not in score</span>' : '';
-    card.innerHTML = `
-      <div class="feature-name">${escapeHtml(featureLabel(key))}${tag}</div>
+    card.innerHTML = `<div class="card-body">
+      <div class="feature-name card-title">${escapeHtml(featureLabel(key))}${tag}</div>
       <div class="feature-sub">${escapeHtml(featureDescription(key))}</div>
       <div class="feature-value">${fmt(f.value)}</div>
       <div class="gauge-track">
@@ -493,7 +493,7 @@ function displayResults(data) {
         <span style="left:${GAUGE_HEALTHY}%">Healthy avg ${fmt(f.ctrl_mean)}</span>
         <span style="left:${GAUGE_PD}%">PD avg ${fmt(f.pd_mean)}</span>
       </div>
-    `;
+    </div>`;
     grid.appendChild(card);
   }
 

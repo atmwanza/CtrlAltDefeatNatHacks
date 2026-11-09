@@ -28,6 +28,7 @@
   const leftBtn = $('tap-left-btn');
   const progress = $('tap-progress');
   const progressBar = $('tap-progress-bar');
+  const progressLabel = $('tap-progress-label');
   const message = $('tap-message');
   const resultsEl = $('tap-results');
   const asymEl = $('tap-asymmetry');
@@ -153,8 +154,14 @@
     leftBtn.disabled = disabled;
     // two-step flow: a finished hand turns green, the next one pulses
     const done = h => !!(results[h] && results[h].valid);
-    rightBtn.textContent = done('right') ? '✓ Right hand done · redo' : '① Start right hand';
-    leftBtn.textContent = done('left') ? '✓ Left hand done · redo' : '② Start left hand';
+    const ic = n => (window.tiIcon ? tiIcon(n) : '');
+    rightBtn.innerHTML = done('right') ? `${ic('check')}Right hand done · redo` : `${ic('hand-finger')}Start right hand`;
+    leftBtn.innerHTML = done('left') ? `${ic('check')}Left hand done · redo` : `${ic('hand-finger')}Start left hand`;
+    const current = !done('right') ? 0 : !done('left') ? 1 : 2;
+    document.querySelectorAll('#tap-steps .step-item').forEach((el, i) => {
+      el.classList.toggle('active', i === current);
+      if (i === current) el.setAttribute('aria-current', 'step'); else el.removeAttribute('aria-current');
+    });
     rightBtn.classList.toggle('done', done('right'));
     leftBtn.classList.toggle('done', done('left'));
     rightBtn.classList.toggle('next', !running && !done('right') && done('left'));
@@ -233,6 +240,7 @@
         const elapsed = (performance.now() - t0) / 1000;
         const f = Math.min(1, elapsed / TAP_SECONDS);
         progressBar.style.width = `${f * 100}%`;
+        if (progressLabel) progressLabel.textContent = f >= 1 ? 'Done' : `${Math.ceil(TAP_SECONDS - elapsed)} s left`;
         if (elapsed > 0.8) {   // GO has been seen: shrink to a pill so the live view stays visible
           overlay.classList.add('rec');
           overlay.textContent = `● REC  ${Math.max(0, TAP_SECONDS - elapsed).toFixed(0)}s`;
@@ -279,6 +287,7 @@
     overlay.classList.remove('rec');
     progress.classList.add('hidden');
     progressBar.style.width = '0%';
+    if (progressLabel) progressLabel.textContent = '';
     setMessage(text, kind);
     updateButtons();
     if (!streaming) startPreview();
@@ -315,7 +324,7 @@
 
   function handCard(hand, r) {
     const card = document.createElement('div');
-    card.className = `tap-card${r.valid ? '' : ' invalid'}`;
+    card.className = `tap-card card${r.valid ? '' : ' invalid'}`;
     const metrics = METRICS.filter(m => Number.isFinite(r[m.key])).map(m => `
       <div class="tap-metric">
         <div class="tap-metric-label">${escapeHtml(m.label)}</div>
@@ -334,9 +343,9 @@
     const state = r.valid
       ? (r.severity ? severityPill(r.severity) : '')
       : `<span class="tap-card-state badge bg-yellow-lt">${window.tiIcon ? tiIcon('alert-triangle') : ''}Not reliable</span>`;
-    card.innerHTML = `
+    card.innerHTML = `<div class="card-body">
       <div class="tap-card-head">
-        <h3>${capitalise(hand)} hand</h3>
+        <h3 class="card-title">${capitalise(hand)} hand</h3>
         ${state}
       </div>
       ${warnings ? `<ul class="tap-warnings">${warnings}</ul>` : ''}
@@ -348,7 +357,8 @@
         </div>` : ''}
         ${metrics ? `<div class="tap-metrics">${metrics}</div>` : ''}
         <div class="tap-quality">${escapeHtml(quality)}</div>
-      </details>`;
+      </details>
+    </div>`;
     // the charts live in a closed drawer (no size until it opens), so draw them on open
     const drawer = card.querySelector('details');
     drawer.addEventListener('toggle', () => {
