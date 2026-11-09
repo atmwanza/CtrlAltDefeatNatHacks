@@ -1,0 +1,71 @@
+{
+ "source": {
+  "citation": "Islam MS, Rahman W, Abdelkader A, et al. Using AI to measure Parkinson's disease severity at home. npj Digital Medicine 6, 156 (2023)",
+  "doi": "https://doi.org/10.1038/s41746-023-00905-9",
+  "data": "https://github.com/ROC-HCI/finger-tapping-severity (MIT licence)",
+  "short": "benchmarked against 489 neurologist-rated home videos (Islam et al. 2023)"
+ },
+ "model": {
+  "type": "L2 logistic regression (lambda=1) on standardised features",
+  "inputs": [
+   "speed_quartile_range_denoised",
+   "amplitude_median_denoised"
+  ],
+  "units": {
+   "speed_quartile_range_denoised": "deg/s",
+   "amplitude_median_denoised": "deg"
+  },
+  "mean": [
+   245.320022,
+   29.81536
+  ],
+  "sd": [
+   123.449698,
+   13.097752
+  ],
+  "intercept": -0.55559,
+  "coef": [
+   -1.0527,
+   -0.359432
+  ],
+  "threshold": 0.5,
+  "validation": {
+   "method": "leave-one-person-out (both hands held out)",
+   "target": "MDS-UPDRS 3.4 rating 2+ vs 0-1 (neurologist consensus)",
+   "auc": 0.788,
+   "sensitivity": 0.64,
+   "specificity": 0.785,
+   "threshold": 0.5,
+   "n_videos": 489,
+   "n_people": 295,
+   "n_rating_2plus": 200
+  }
+ },
+ "median_by_rating": {
+  "0": {
+   "speed_quartile_range_denoised": 324.9,
+   "amplitude_median_denoised": 36.9,
+   "n": 108
+  },
+  "1": {
+   "speed_quartile_range_denoised": 242.2,
+   "amplitude_median_denoised": 29.3,
+   "n": 181
+  },
+  "2": {
+   "speed_quartile_range_denoised": 181.1,
+   "amplitude_median_denoised": 23.7,
+   "n": 141
+  },
+  "3": {
+   "speed_quartile_range_denoised": 124.4,
+   "amplitude_median_denoised": 17.4,
+   "n": 54
+  },
+  "4": {
+   "speed_quartile_range_denoised": 84.8,
+   "amplitude_median_denoised": 10.8,
+   "n": 5
+  }
+ }
+}

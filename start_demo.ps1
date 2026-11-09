@@ -84,16 +84,38 @@ if (-not (Test-Path $Adb)) {
         Write-Host "Tablet connected wirelessly. Open http://localhost:$Port in Chrome on the tablet." -ForegroundColor Green
         # Wi-Fi adb can drop (tablet sleeps, hotspot blips); the forward goes with it.
         # Re-check every 10 s and restore both, so the demo heals itself.
-        Start-Job -ArgumentList $Adb, $serial, $Port -ScriptBlock {
-            param($adb, $serial, $port)
+        $watchLog = Join-Path $env:TEMP "drawdx_tablet_watchdog.log"
+        Write-Host "Tablet watchdog log: $watchLog" -ForegroundColor DarkGray
+        Start-Job -ArgumentList $Adb, $serial, $Port, $watchLog -ScriptBlock {
+            param($adb, $serial, $port, $log)
+            $fails = 0
             while ($true) {
                 Start-Sleep -Seconds 10
                 $state = (& $adb -s $serial get-state 2>&1 | Out-String).Trim()
-                # "offline" means adb still lists a dead link and `connect` replies "already connected",
-                # so drop it first, then reconnect
-                if ($state -ne "device") { & $adb disconnect $serial 2>&1 | Out-Null; & $adb connect $serial 2>&1 | Out-Null }
+                if ($state -ne "device") {
+                    # "offline" means adb still lists a dead link and `connect` replies "already
+                    # connected", so drop it first, then reconnect
+                    & $adb disconnect $serial 2>&1 | Out-Null
+                    & $adb connect $serial 2>&1 | Out-Null
+                    $state = (& $adb -s $serial get-state 2>&1 | Out-String).Trim()
+                    if ($state -ne "device") { $fails = 0; continue }   # tablet asleep or off the hotspot
+                    Add-Content -Path $log -Value "$(Get-Date -Format T) reconnected"
+                }
                 $fwd = & $adb -s $serial reverse --list 2>&1 | Out-String
-                if ($fwd -notmatch "tcp:$port") { & $adb -s $serial reverse "tcp:$port" "tcp:$port" | Out-Null }
+                if ($fwd -notmatch "tcp:$port") { & $adb -s $serial reverse "tcp:$port" "tcp:$port" 2>&1 | Out-Null }
+                # After a Wi-Fi blip the forward can stay listed but carry nothing (the tablet then
+                # can't open localhost). Send a real request through it from the tablet; after two
+                # failed checks in a row, restart adb and rebuild the link.
+                $probe = & $adb -s $serial shell "(printf 'GET /health HTTP/1.0\r\n\r\n'; sleep 2) | nc 127.0.0.1 $port | head -1" 2>&1 | Out-String
+                if ($probe -match "200 OK") { $fails = 0; continue }
+                $fails++
+                if ($fails -lt 2) { continue }
+                & $adb kill-server 2>&1 | Out-Null
+                & $adb connect $serial 2>&1 | Out-Null
+                Start-Sleep -Seconds 2
+                & $adb -s $serial reverse "tcp:$port" "tcp:$port" 2>&1 | Out-Null
+                Add-Content -Path $log -Value "$(Get-Date -Format T) tunnel was stuck: restarted adb and rebuilt it"
+                $fails = 0
             }
         } | Out-Null
     }
