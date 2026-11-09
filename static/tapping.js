@@ -486,7 +486,8 @@
         <button class="btn verdict-retest" type="button">↻ Retest</button>
       </div>
       <div class="verdict-scale">Under ${s.bands.typical_below} typical · ${s.bands.typical_below}–${s.bands.elevated_from - 1} borderline ·
-        ${s.bands.elevated_from}+ elevated · a screening estimate, not a diagnosis</div>`;
+        ${s.bands.elevated_from}+ elevated · a probability of matching the Parkinson&#39;s group (50 = equally likely either group),
+        not a percentage chance of having Parkinson&#39;s · not a diagnosis</div>`;
     scoreEl.querySelector('.verdict-retest').addEventListener('click', clearResults);
     scoreEl.classList.remove('hidden');
     countUp(scoreEl.querySelector('.verdict-num'), s.score);
