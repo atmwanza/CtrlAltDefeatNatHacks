@@ -136,6 +136,12 @@ if ($Pi) {
     Write-Host "  The Pi should appear in the Tapping tab within ~10 s of booting." -ForegroundColor Green
 }
 
+if ($env:GEMINI_API_KEY) {
+    Write-Host "Plain-language summary: on (Gemini; needs internet)." -ForegroundColor Green
+} else {
+    Write-Host "Plain-language summary: off (set GEMINI_API_KEY to turn it on)." -ForegroundColor DarkGray
+}
+
 $capture = $null
 if ($Webcam) {
     # same capture service the Pi runs, using the laptop webcam; it finds the backend on localhost

@@ -319,6 +319,7 @@ function resetCanvasState() {
   telemetryStrip.textContent = `Waiting for ${penLabel()}…`;
   telemetryStrip.classList.remove('telemetry-warning');
   redrawCanvas();
+  window.prismSummary?.clearSpiral();
 }
 
 // Results are scrollable, the drawing view is not. Without resetting, Safari keeps the
@@ -537,6 +538,7 @@ function displayResults(data) {
   }
 
   drawSteadinessHeatmap();
+  window.prismSummary?.setSpiral(data);
 }
 
 // Result numbers count up from 0 (about half a second), so the eye lands on them.

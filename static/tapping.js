@@ -200,6 +200,7 @@
     scoreEl.innerHTML = '';
     scoreEl.className = 'tap-score hidden';
     asymEl.classList.add('hidden');
+    window.prismSummary?.clearTapping();
     setMessage('Cleared. Start with the right hand.');
     updateButtons();
     mainEl.scrollTop = 0;
@@ -441,7 +442,11 @@
   // result is the worse hand. Model checked on people it wasn't trained on.
   async function updateScore() {
     const R = results.right, L = results.left;
-    if (!(R && L && R.valid && L.valid)) { scoreEl.classList.add('hidden'); return; }
+    if (!(R && L && R.valid && L.valid)) {
+      scoreEl.classList.add('hidden');
+      window.prismSummary?.clearTapping();   // a redone hand invalidates the old two-hand score
+      return;
+    }
     if (!SHOW_COMBINED_SCORE) {
       scoreEl.innerHTML = `<div class="tap-score-off">
         <strong>No single tapping score.</strong> Each measure below is shown against the published
@@ -461,11 +466,13 @@
       if (!res.ok) throw new Error(s.detail || `Server returned ${res.status}`);
     } catch (err) {
       if (gen !== generation) return;
+      window.prismSummary?.clearTapping();
       scoreEl.innerHTML = `<div class="tap-score-note">No tapping score: ${escapeHtml(err.message)}</div>`;
       scoreEl.classList.remove('hidden');
       return;
     }
     if (gen !== generation) return;   // cleared while the score was on its way
+    window.prismSummary?.setTapping(s, { right: R.severity || null, left: L.severity || null });
     const band = s.band;
     const v = s.validation;
     const td = s.tap_difference;

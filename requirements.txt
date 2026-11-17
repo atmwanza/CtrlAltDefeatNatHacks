@@ -9,3 +9,5 @@ requests>=2.31
 httpx>=0.27          # live camera preview: the backend streams frames from the Pi/webcam capture service
 # webcam fallback capture (pi/pi_capture.py on the laptop); the Pi uses apt packages instead
 flask>=3.0
+# plain-language summary (01/llm_summary.py); needs GEMINI_API_KEY, otherwise switched off
+google-genai>=1.0

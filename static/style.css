@@ -404,6 +404,21 @@ main {
 .pct-unscored .feature-value { color: var(--text-muted); }
 .pct-unscored .gauge-track { background: var(--border); }
 
+/* plain-language summary (static/summary.js); same card in the spiral and tapping panels */
+
+.llm-summary { margin-bottom: 14px; }
+.llm-summary-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-bottom: 8px;
+}
+.llm-summary-title { font-weight: 600; }
+.llm-summary-tag { font-size: 12px; color: var(--text-muted); }
+.llm-summary-text { margin: 0; font-size: 15px; line-height: 1.6; }
+.llm-summary-loading .llm-summary-text { color: var(--text-muted); font-style: italic; }
+
 /* interpretation + disclaimer */
 
 #interpretation-block {

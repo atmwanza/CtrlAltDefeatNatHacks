@@ -7,7 +7,7 @@
 <!-- ?v= forces tablets to fetch new code on a normal refresh; bump it after editing static/ -->
 <!-- Tabler UI kit (MIT, static/vendor/tabler/LICENSE), CSS only and served locally; loaded first so our own rules win -->
 <link rel="stylesheet" href="/static/vendor/tabler/tabler.min.css?v=1.7.4">
-<link rel="stylesheet" href="/static/style.css?v=20261109c">
+<link rel="stylesheet" href="/static/style.css?v=20261116a">
 <link rel="stylesheet" href="/balance/static/balance.css?v=20261109c">
 </head>
 <body>
@@ -83,6 +83,14 @@
 
     <div id="features-grid"></div>
 
+    <div id="spiral-summary" class="llm-summary card hidden" aria-live="polite">
+      <div class="card-body">
+        <div class="llm-summary-head"><span data-icon="clipboard-list"></span><span class="llm-summary-title">Summary</span>
+          <span class="llm-summary-tag">AI-written by Gemini · the scores above are the result</span></div>
+        <p class="llm-summary-text"></p>
+      </div>
+    </div>
+
     <div id="interpretation-block"></div>
 
     <div id="disclaimer-block">
@@ -133,6 +141,13 @@
     </div>
 
     <div id="tap-score" class="tap-score hidden"></div>
+    <div id="tap-summary" class="llm-summary card hidden" aria-live="polite">
+      <div class="card-body">
+        <div class="llm-summary-head"><span data-icon="clipboard-list"></span><span class="llm-summary-title">Summary</span>
+          <span class="llm-summary-tag">AI-written by Gemini · the scores above are the result</span></div>
+        <p class="llm-summary-text"></p>
+      </div>
+    </div>
     <div id="tap-results" class="tap-results"></div>
     <div id="tap-asymmetry" class="tap-asymmetry hidden"></div>
 
@@ -147,8 +162,9 @@
 </main>
 
 <script src="/static/icons.js?v=20261109c"></script>
-<script src="/static/app.js?v=20261109c"></script>
-<script src="/static/tapping.js?v=20261109c"></script>
+<script src="/static/summary.js?v=20261116a"></script>
+<script src="/static/app.js?v=20261116a"></script>
+<script src="/static/tapping.js?v=20261116a"></script>
 <script src="/balance/static/balance.js?v=20261109c"></script>
 </body>
 </html>

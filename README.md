@@ -46,6 +46,11 @@ The Pi is taped to the laptop lid, upside down (`ROTATE=180` in `pi/drawdx-captu
    ```powershell
    powershell -ExecutionPolicy Bypass -File tools\setup_firewall.ps1
    ```
+5. **Plain-language summary (optional):** create a free API key in [Google AI Studio](https://aistudio.google.com/apikey), then save it for new terminals (open a new one afterwards). Never commit the key; the repo is public.
+   ```powershell
+   setx GEMINI_API_KEY "paste-your-key-here"
+   ```
+   Without a key the summary is simply switched off. It needs internet on the laptop; everything else works offline. Only derived results (scores, bands, measures and reference averages) are sent to Gemini, never drawings, video or names. On the free tier, Google may use what's sent to improve its products.
 
 ## Running it
 
@@ -74,7 +79,8 @@ powershell -ExecutionPolicy Bypass -File start_demo.ps1 -Wireless -Pi
 
 1. **Spiral.** Tap **Begin Drawing**, trace the spiral with the S Pen in one stroke, then **Analyze Spiral**. You get a 0–100 score with a card for each feature. **Clear** starts over.
 2. **Tapping.** Open the **Tapping** tab. Rest your forearm on the table with your hand on the mark, about 45 cm from the camera. Press **① Start right hand**. After the 3-2-1 countdown, tap index finger on thumb as fast and as big as you can until the bar finishes (10 s). Repeat with **② Start left hand**. You get a 0–100 score with a band, a result for each hand, and the severity band. **Clear and start over** resets it.
-3. **Balance (planned).** The tab shows the study plan: why, who, protocol, what we'd measure, privacy, status. The working recorder sits in the closed **Try the recorder** drawer, for the team only; it turns on the camera only when opened.
+3. **Summary.** With a Gemini key set, a short plain-language summary of every test done so far appears under the score in both tabs, labelled as AI-written. The scores are the result; the summary only puts them into words, and it is checked before it's shown (it may only use numbers from the results, and may not phrase a diagnosis).
+4. **Balance (planned).** The tab shows the study plan: why, who, protocol, what we'd measure, privacy, status. The working recorder sits in the closed **Try the recorder** drawer, for the team only; it turns on the camera only when opened.
 
 ## If something goes wrong
 
@@ -84,6 +90,7 @@ powershell -ExecutionPolicy Bypass -File start_demo.ps1 -Wireless -Pi
 | "Camera not connected" in the Tapping tab | Was `start_demo.ps1` started with `-Pi`? Is the Pi on the hotspot? Did `tools\setup_firewall.ps1` run? From the Pi, `curl -s http://192.168.137.1:5000/health` should return `{"ok":true,...}` |
 | Camera picture upside down | On the Pi, set `ROTATE` (0 or 180) in `/etc/systemd/system/drawdx-capture.service`, then `sudo systemctl daemon-reload && sudo systemctl restart drawdx-capture` |
 | Old page on the tablet after an update | Refresh the page; assets are versioned (`?v=`) |
+| No summary card | `start_demo.ps1` prints whether the summary is on. If it's off, set `GEMINI_API_KEY` and open a new terminal. If it's on, the backend log shows `[summary]` lines with the reason (no internet, rate limit, or a summary that failed the checks) |
 
 More fixes: [`ADB_SETUP.md`](ADB_SETUP.md) (tablet), [`pi/SETUP.md`](pi/SETUP.md) (Pi).
 
@@ -98,6 +105,7 @@ More fixes: [`ADB_SETUP.md`](ADB_SETUP.md) (tablet), [`pi/SETUP.md`](pi/SETUP.md
 | `01/tapping.py`, `tapping_analysis.py` | Tapping: talks to the camera, tracks the hand (MediaPipe), extracts features |
 | `01/tapping_reference.py` / `.json` | Tapping score, built by `tools/build_tapping_reference.py` |
 | `01/tapping_severity.py` / `.json` | Severity band, built by `tools/build_tapping_severity.py` |
+| `01/llm_summary.py`, `static/summary.js` | Optional plain-language summary written by Gemini (`POST /summary`) |
 | `balance/` | Balance study: pose tracking, sway features, recorder (backend and frontend) |
 | `pi/` | Raspberry Pi capture service, focus helper, systemd unit and setup guide |
 | `static/`, `templates/` | Tablet frontend (HTML, CSS, JavaScript) |
